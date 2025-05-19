@@ -2,6 +2,9 @@ name = "kremer"
 main = "index.js"
 compatibility_date = "2025-05-19"
 
-routes = [
-  { pattern = "kremer.men", custom_domain = true }
-]
+[site]
+bucket = "./public"
+
+[[routes]]
+pattern = "kremer.men/*"
+custom_domain = true
