@@ -1,0 +1,6 @@
+name = "kremer"
+main = "index.js"
+compatibility_date = "2025-05-19"
+
+[site]
+bucket = "."
