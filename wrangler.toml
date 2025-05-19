@@ -1,6 +1,7 @@
-name = "kremer"
+name = "kremer-men-site"
 main = "index.js"
 compatibility_date = "2025-05-19"
 
-[site]
-bucket = "."
+routes = [
+  { pattern = "kremer.men", custom_domain = true }
+]
