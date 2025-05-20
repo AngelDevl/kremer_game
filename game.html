@@ -23,23 +23,24 @@
             border: none; /* Removed border for full screen feel */
             background-color: #2c2c2c; /* Initial canvas background */
             display: block;
-            /* box-shadow: 0 0 20px rgba(255, 255, 255, 0.3); Removed for cleaner mobile */
             max-width: 100%; /* Ensure canvas doesn't overflow */
             max-height: 100%; /* Ensure canvas doesn't overflow */
-            object-fit: contain; /* Or 'cover' depending on desired behavior if aspect ratio is forced */
+            object-fit: contain; 
         }
         #gameUI {
             position: absolute;
             top: 10px;
-            left: 10px;
-            padding: 8px;
-            background-color: rgba(0,0,0,0.7); /* Slightly more opaque */
+            left: 50%; /* Center horizontally */
+            transform: translateX(-50%); /* Adjust for centering */
+            padding: 8px 12px;
+            background-color: rgba(0,0,0,0.75); 
             border-radius: 5px;
-            font-size: clamp(0.6em, 2vw, 0.8em); /* Responsive font size */
+            font-size: clamp(0.6em, 2vw, 0.8em); 
             color: #ffcc00;
             z-index: 10;
             pointer-events: none;
-            max-width: 80%; /* Prevent message box from being too wide */
+            max-width: 80%; 
+            text-align: center;
         }
         .hidden {
             display: none;
@@ -55,8 +56,11 @@
         const ctx = canvas.getContext('2d');
         const gameUI = document.getElementById('gameUI');
 
+        // --- Mobile Detection ---
+        const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0);
+
         // --- Game Settings ---
-        const TILE_SIZE = 20; // Base size for objects
+        const TILE_SIZE = 20; 
         const WORLD_WIDTH = TILE_SIZE * 100;
         const WORLD_HEIGHT = TILE_SIZE * 80;
         const DETECTION_RADIUS = TILE_SIZE * 8;
@@ -70,7 +74,7 @@
             x: 0, y: 0,
             width: canvas.width,
             height: canvas.height,
-            zoom: 1 // Zoom level can be adjusted for better visibility on small screens if needed
+            zoom: 1 
         };
 
         // --- Characters and Objects ---
@@ -78,8 +82,8 @@
             name: "Kremer",
             x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2,
             width: TILE_SIZE, height: TILE_SIZE,
-            color: '#007bff', // Blue
-            baseSpeed: 30, 
+            color: '#007bff', 
+            baseSpeed: 30, // Kept from user's code, effective speed will be adjusted for mobile
             currentSpeed: 30,
             targetX: WORLD_WIDTH / 2, targetY: WORLD_HEIGHT / 2,
             dx: 0, dy: 0,
@@ -96,21 +100,21 @@
             name: "Ziv",
             x: TILE_SIZE * 80, y: TILE_SIZE * 10,
             width: TILE_SIZE, height: TILE_SIZE,
-            color: '#6f42c1' // Purple
+            color: '#6f42c1'
         };
-
+        
         const tables = [
             {
                 name: "Class Table",
                 x: TILE_SIZE * 5, y: WORLD_HEIGHT - TILE_SIZE * 15,
                 width: TILE_SIZE * 10, height: TILE_SIZE * 4,
-                color: '#6c757d' // Gray
+                color: '#6c757d' 
             },
             {
                 name: "Ziv's Table",
                 x: ziv.x - TILE_SIZE * 4, y: ziv.y + TILE_SIZE * 2,
                 width: TILE_SIZE * 8, height: TILE_SIZE * 3,
-                color: '#5c656d' // Darker Gray
+                color: '#5c656d' 
             }
         ];
 
@@ -118,7 +122,7 @@
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
         
-        const tableColors = ['#8B4513', '#A0522D', '#803515', '#975429']; // Brownish colors for tables
+        const tableColors = ['#8B4513', '#A0522D', '#803515', '#975429'];
 
         for (let i = 0; i < 15; i++) {
             const width = getRandomInt(3, 8) * TILE_SIZE;
@@ -133,7 +137,7 @@
                         Math.pow((x + width/2) - (table.x + table.width/2), 2) +
                         Math.pow((y + height/2) - (table.y + table.height/2), 2)
                     );
-                    if (distanceVal < TILE_SIZE * 15) { // Ensure tables are not too close
+                    if (distanceVal < TILE_SIZE * 15) { 
                         validPosition = false;
                         break;
                     }
@@ -152,26 +156,27 @@
             "Keren", "Lior", "Maya", "Noa", "Omer", "Rotem", "Shira"
         ];
         const students = [];
-        const UNIFORM_STUDENT_COLOR = '#28a745'; // Uniform green for students
+        const UNIFORM_STUDENT_COLOR = '#28a745';
 
         const powerUps = [];
         const powerUpTypes = [
             {
                 name: "Speed Boost", color: "#ffcc00", duration: 10,
                 effect: () => {
-                    player.baseSpeed = 6; 
+                    const originalBaseSpeed = player.baseSpeed; // Store original for reversion
+                    player.baseSpeed *= 1.5; // Boost speed
+                    gameUI.classList.remove('hidden'); gameUI.textContent = "Speed Boost Active!";
                     setTimeout(() => {
-                        player.baseSpeed = 4.5; 
-                        gameUI.classList.remove('hidden');
+                        player.baseSpeed = originalBaseSpeed; 
                         gameUI.textContent = "Speed boost ended!";
                         setTimeout(() => gameUI.classList.add('hidden'), 2000);
-                    }, 10000);
+                    }, 5000); // Shorter duration for boosted speed
                 }
             },
             {
                 name: "Student Freeze", color: "#00ccff", duration: 5,
                 effect: () => {
-                    students.forEach(s => { if (!s.isCaught) s.frozenTimer = 5 * 60; }); // 5 seconds at 60fps
+                    students.forEach(s => { if (!s.isCaught) s.frozenTimer = 5 * 60; }); 
                     gameUI.classList.remove('hidden');
                     gameUI.textContent = "Student Freeze active!";
                     setTimeout(() => gameUI.classList.add('hidden'), 2000);
@@ -204,34 +209,34 @@
         ];
 
         const environment = {
-            timeOfDay: 0, // 0 = dawn, 0.5 = noon, 1 = dusk
-            dayLength: 120, // seconds for a full day
+            timeOfDay: 0, 
+            dayLength: 120, 
             updateEnvironment: function() {
                 if (gamePaused) return;
                 this.timeOfDay = (this.timeOfDay + 1/(this.dayLength * 60)) % 1;
             },
             getBackgroundColor: function() {
                 let skyColor;
-                if (this.timeOfDay < 0.25) { // Dawn
+                if (this.timeOfDay < 0.25) { 
                     const t = this.timeOfDay / 0.25;
                     skyColor = `rgb(${Math.floor(50 + t * 100)}, ${Math.floor(50 + t * 150)}, ${Math.floor(100 + t * 155)})`;
-                } else if (this.timeOfDay < 0.75) { // Day
-                    skyColor = '#87CEEB'; // Sky blue
-                } else { // Dusk
+                } else if (this.timeOfDay < 0.75) { 
+                    skyColor = '#87CEEB'; 
+                } else { 
                     const t = (this.timeOfDay - 0.75) / 0.25;
                     skyColor = `rgb(${Math.floor(150 - t * 100)}, ${Math.floor(200 - t * 150)}, ${Math.floor(255 - t * 155)})`;
                 }
                 return skyColor;
             },
             getLightLevel: function() {
-                if (this.timeOfDay < 0.25) return 0.7 + this.timeOfDay * 1.2; // Dawn: 0.7 to 1.0
-                else if (this.timeOfDay < 0.75) return 1.0; // Day: 1.0
-                else return 1.0 - (this.timeOfDay - 0.75) * 0.8; // Dusk: 1.0 to 0.8
+                if (this.timeOfDay < 0.25) return 0.7 + this.timeOfDay * 1.2; 
+                else if (this.timeOfDay < 0.75) return 1.0; 
+                else return 1.0 - (this.timeOfDay - 0.75) * 0.8; 
             }
         };
 
         const specialAbilities = {
-            active: false, cooldown: 0, maxCooldown: 600, // 10 seconds cooldown (600 frames / 60fps)
+            active: false, cooldown: 0, maxCooldown: 600, 
             available: [
                 {
                     name: "Time Warp", description: "Slow down time for everyone except you.",
@@ -243,28 +248,28 @@
                             s.speed *= slowFactor; s.runSpeed *= slowFactor; s.returnSpeed *= slowFactor;
                         });
                         gameUI.classList.remove('hidden'); gameUI.textContent = "Time Warp active!";
-                        ctx.filter = "sepia(0.5) hue-rotate(240deg)"; // Visual effect for time warp
+                        ctx.filter = "sepia(0.5) hue-rotate(240deg)"; 
                         setTimeout(() => { 
                             students.forEach((s, i) => {
-                                if (originalSpeeds[i]) { // Check if originalSpeeds[i] exists
+                                if (originalSpeeds[i]) { 
                                     s.speed = originalSpeeds[i].speed;
                                     s.runSpeed = originalSpeeds[i].runSpeed;
                                     s.returnSpeed = originalSpeeds[i].returnSpeed;
                                 }
                             });
-                            ctx.filter = "none"; // Reset visual effect
+                            ctx.filter = "none"; 
                             gameUI.textContent = "Time Warp ended";
                             setTimeout(() => gameUI.classList.add('hidden'), 2000);
                             specialAbilities.active = false;
                             specialAbilities.cooldown = specialAbilities.maxCooldown;
-                        }, 2500); // Duration changed to 2.5 seconds
+                        }, 2500); 
                     }
                 },
                 {
                     name: "Super Sprint", description: "Infinite stamina and doubled speed for a short time.",
                     activate: function() {
                         const originalSpeed = player.baseSpeed;
-                        player.baseSpeed *= 2; player.stamina = player.maxStamina; // Refill stamina
+                        player.baseSpeed *= 2; player.stamina = player.maxStamina; 
                         gameUI.classList.remove('hidden'); gameUI.textContent = "Super Sprint active!";
                         setTimeout(() => {
                             player.baseSpeed = originalSpeed;
@@ -272,7 +277,7 @@
                             setTimeout(() => gameUI.classList.add('hidden'), 2000);
                             specialAbilities.active = false;
                             specialAbilities.cooldown = specialAbilities.maxCooldown;
-                        }, 7000); // 7 seconds duration
+                        }, 7000); 
                     }
                 },
                 {
@@ -286,7 +291,7 @@
                             setTimeout(() => gameUI.classList.add('hidden'), 2000);
                             specialAbilities.active = false;
                             specialAbilities.cooldown = specialAbilities.maxCooldown;
-                        }, 12000); // 12 seconds duration
+                        }, 12000); 
                     }
                 }
             ],
@@ -310,7 +315,7 @@
                 }
             },
             cycleAbility: function() {
-                if (gamePaused || this.active) return; // Prevent cycling while an ability is active or paused
+                if (gamePaused || this.active) return; 
                 this.selectedAbility = (this.selectedAbility + 1) % this.available.length;
                 gameUI.classList.remove('hidden');
                 gameUI.textContent = `Selected: ${this.available[this.selectedAbility].name}`;
@@ -333,18 +338,18 @@
                 draw: function() {
                     ctx.fillStyle = '#2c2c2c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
                     ctx.fillStyle = '#fff'; 
-                    ctx.font = `${Math.min(32, canvas.width / 20)}px "Press Start 2P"`; // Responsive font
+                    ctx.font = `${Math.min(32, canvas.width / 18, canvas.height / 15)}px "Press Start 2P"`; 
                     ctx.textAlign = 'center';
                     ctx.fillText(this.title, canvas.width / 2, canvas.height / 3);
-                    ctx.font = `${Math.min(16, canvas.width / 35)}px "Press Start 2P"`;
+                    ctx.font = `${Math.min(16, canvas.width / 30, canvas.height / 25)}px "Press Start 2P"`;
                     ctx.fillText(this.subtitle, canvas.width / 2, canvas.height / 3 + Math.min(40, canvas.height / 10));
-                    ctx.font = `${Math.min(20, canvas.width / 28)}px "Press Start 2P"`;
+                    ctx.font = `${Math.min(20, canvas.width / 25, canvas.height / 20)}px "Press Start 2P"`;
                     this.options.forEach((option, i) => {
                         ctx.fillStyle = (i === this.selectedOption) ? '#ffcc00' : '#fff';
                         ctx.fillText((i === this.selectedOption ? '> ' : '') + option.text + (i === this.selectedOption ? ' <' : ''), canvas.width / 2, canvas.height / 2 + i * Math.min(50, canvas.height / 10) + Math.min(30, canvas.height / 15));
                     });
-                    ctx.font = `${Math.min(12, canvas.width / 45)}px "Press Start 2P"`; ctx.fillStyle = '#aaa';
-                    ctx.fillText('Arrow Keys / WASD / Touch to Navigate, Enter / Tap to Select', canvas.width / 2, canvas.height - Math.min(50, canvas.height / 8));
+                    ctx.font = `${Math.min(12, canvas.width / 40, canvas.height / 35)}px "Press Start 2P"`; ctx.fillStyle = '#aaa';
+                    ctx.fillText('Navigate: Keys/Touch, Select: Enter/Tap', canvas.width / 2, canvas.height - Math.min(50, canvas.height / 8));
                 },
                 handleInput: function(key) {
                     switch(key.toLowerCase()) {
@@ -358,34 +363,44 @@
                 draw: function() {
                     ctx.fillStyle = '#2c2c2c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
                     ctx.fillStyle = '#fff'; 
-                    ctx.font = `${Math.min(24, canvas.width / 22)}px "Press Start 2P"`; 
+                    ctx.font = `${Math.min(24, canvas.width / 20, canvas.height / 18)}px "Press Start 2P"`; 
                     ctx.textAlign = 'center';
                     ctx.fillText("How to Play", canvas.width / 2, Math.min(80, canvas.height/8));
-                    ctx.font = `${Math.min(12, canvas.width / 48, canvas.height / 30)}px "Press Start 2P"`; // Responsive font for instructions
+                    ctx.font = `${Math.min(11, canvas.width / 45, canvas.height / 30)}px "Press Start 2P"`; 
                     ctx.textAlign = 'left';
                     const instructionsText = [
-                        "- Use WASD or Arrow Keys to move", "- Hold SHIFT to sprint (uses stamina)",
-                        "- Press SPACE to use your special ability", "- Press Q to cycle between abilities",
-                        "- Collect power-ups to gain advantages", "- Students will run away when they see you!",
-                        "- Different students have different personalities", "- Catch all 15 students to win",
-                        "- Press P to pause the game", "- Touch Controls (Mobile):",
-                        "  - Drag to move", "  - Tap bottom-right to sprint",
-                        "  - Tap bottom-left to cycle ability", "  - Double-tap center to activate ability"
+                        "Desktop Controls:",
+                        "- WASD or Arrow Keys: Move", 
+                        "- SHIFT: Sprint (uses stamina)",
+                        "- SPACE: Use Special Ability", 
+                        "- Q: Cycle Special Ability",
+                        "- P: Pause Game",
+                        "",
+                        "Mobile Controls (Landscape):",
+                        "- Left Joystick: Move",
+                        "- Bottom-Right Buttons:",
+                        "  'RUN': Hold to Sprint",
+                        "  'USE': Activate Ability",
+                        "  'SWAP': Cycle Ability",
+                        "",
+                        "Goal: Catch all 15 students!",
+                        "Collect power-ups for advantages."
                     ];
-                    const lineHeight = Math.min(25, canvas.height / 20);
-                    const startY = Math.min(140, canvas.height / 5);
-                    instructionsText.forEach((text, i) => ctx.fillText(text, canvas.width / 20, startY + i * lineHeight));
+                    const lineHeight = Math.min(22, canvas.height / 22);
+                    const startY = Math.min(120, canvas.height / 6);
+                    const startX = canvas.width / 10;
+                    instructionsText.forEach((text, i) => ctx.fillText(text, startX, startY + i * lineHeight));
                     ctx.fillStyle = '#ffcc00'; ctx.textAlign = 'center'; 
-                    ctx.font = `${Math.min(16, canvas.width / 35)}px "Press Start 2P"`;
-                    ctx.fillText("Press ESC or Tap to return to menu", canvas.width / 2, canvas.height - Math.min(50, canvas.height / 10));
+                    ctx.font = `${Math.min(16, canvas.width / 30, canvas.height / 25)}px "Press Start 2P"`;
+                    ctx.fillText("Tap or Press ESC/Enter to Return", canvas.width / 2, canvas.height - Math.min(50, canvas.height / 10));
                 },
                 handleInput: function(key) {
-                    if (key.toLowerCase() === 'escape' || key.toLowerCase() === 'enter' || key.toLowerCase() === ' ') { // Allow tap/enter to exit
+                    if (['escape', 'enter', ' '].includes(key.toLowerCase())) {
                          gameStates.currentState = gameStates.MENU;
                     }
                 }
             },
-            pauseMenu: {
+            pauseMenu: { // Similar responsive font adjustments as startScreen
                  options: [
                     { text: "Resume", action: () => { gameStates.currentState = gameStates.GAME; gamePaused = false; } },
                     { text: "Restart", action: () => gameStates.restartGame() },
@@ -393,13 +408,13 @@
                 ],
                 selectedOption: 0,
                 draw: function() {
-                    drawGame(); // Draw paused game underneath
+                    drawGame(); 
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
                     ctx.fillStyle = '#fff'; 
-                    ctx.font = `${Math.min(32, canvas.width / 20)}px "Press Start 2P"`; 
+                    ctx.font = `${Math.min(32, canvas.width / 18, canvas.height / 15)}px "Press Start 2P"`; 
                     ctx.textAlign = 'center';
                     ctx.fillText("PAUSED", canvas.width / 2, canvas.height / 3);
-                    ctx.font = `${Math.min(20, canvas.width / 28)}px "Press Start 2P"`;
+                    ctx.font = `${Math.min(20, canvas.width / 25, canvas.height / 20)}px "Press Start 2P"`;
                     this.options.forEach((option, i) => {
                         ctx.fillStyle = (i === this.selectedOption) ? '#ffcc00' : '#fff';
                         ctx.fillText((i === this.selectedOption ? '> ' : '') + option.text + (i === this.selectedOption ? ' <' : ''), canvas.width / 2, canvas.height / 2 + i * Math.min(50, canvas.height / 10));
@@ -414,22 +429,22 @@
                     }
                 }
             },
-            gameOverScreen: {
+            gameOverScreen: { // Similar responsive font adjustments
                 draw: function() {
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
                     ctx.fillStyle = '#ff5555'; 
-                    ctx.font = `${Math.min(32, canvas.width / 20)}px "Press Start 2P"`; 
+                    ctx.font = `${Math.min(32, canvas.width / 18, canvas.height / 15)}px "Press Start 2P"`; 
                     ctx.textAlign = 'center';
                     ctx.fillText("TIME'S UP!", canvas.width / 2, canvas.height / 3);
                     ctx.fillStyle = '#fff'; 
-                    ctx.font = `${Math.min(20, canvas.width / 28)}px "Press Start 2P"`;
+                    ctx.font = `${Math.min(20, canvas.width / 25, canvas.height / 20)}px "Press Start 2P"`;
                     ctx.fillText(`Students Caught: ${player.captureCount} / ${students.length}`, canvas.width / 2, canvas.height / 2);
                     const minutes = Math.floor(gameTime / 60); const seconds = Math.floor(gameTime % 60);
                     ctx.fillText(`Time: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`, canvas.width / 2, canvas.height / 2 + Math.min(40, canvas.height/12));
                     ctx.fillStyle = '#ffcc00'; 
-                    ctx.font = `${Math.min(16, canvas.width / 35)}px "Press Start 2P"`;
-                    ctx.fillText("Press ENTER or Tap to retry", canvas.width / 2, canvas.height / 2 + Math.min(100, canvas.height/6));
-                    ctx.fillText("Press ESC for main menu", canvas.width / 2, canvas.height / 2 + Math.min(130, canvas.height/5));
+                    ctx.font = `${Math.min(16, canvas.width / 30, canvas.height / 25)}px "Press Start 2P"`;
+                    ctx.fillText("Tap or Press ENTER to Retry", canvas.width / 2, canvas.height / 2 + Math.min(100, canvas.height/6));
+                    ctx.fillText("Press ESC for Main Menu", canvas.width / 2, canvas.height / 2 + Math.min(130, canvas.height/5));
                 },
                 handleInput: function(key) {
                     switch(key.toLowerCase()) {
@@ -438,29 +453,28 @@
                     }
                 }
             },
-            victoryScreen: {
+            victoryScreen: { // Similar responsive font adjustments
                 draw: function() {
                     ctx.fillStyle = 'rgba(0, 0, 100, 0.3)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
                     ctx.fillStyle = '#fff';
-                    // Simple particle effect for victory
-                    for (let i = 0; i < 50; i++) { // Reduced particle count for performance
-                        const x = (Math.sin(i * 0.1 + Date.now() * 0.0002) * 0.4 + 0.5) * canvas.width; // Slower movement
+                    for (let i = 0; i < 50; i++) { 
+                        const x = (Math.sin(i * 0.1 + Date.now() * 0.0002) * 0.4 + 0.5) * canvas.width; 
                         const y = (Math.cos(i * 0.1 + Date.now() * 0.0002) * 0.4 + 0.5) * canvas.height;
-                        const size = Math.sin(i + Date.now() * 0.002) * 1.5 + 2; // Smaller particles
+                        const size = Math.sin(i + Date.now() * 0.002) * 1.5 + 2; 
                         if (size > 0) ctx.fillRect(x, y, size, size);
                     }
                     ctx.shadowColor = '#ffff00'; ctx.shadowBlur = 15; ctx.fillStyle = '#ffff00';
-                    ctx.font = `${Math.min(36, canvas.width / 18)}px "Press Start 2P"`; 
+                    ctx.font = `${Math.min(36, canvas.width / 15, canvas.height / 12)}px "Press Start 2P"`; 
                     ctx.textAlign = 'center';
                     ctx.fillText("VICTORY!", canvas.width / 2, canvas.height / 3);
                     ctx.shadowBlur = 0; ctx.fillStyle = '#fff'; 
-                    ctx.font = `${Math.min(20, canvas.width / 28)}px "Press Start 2P"`;
+                    ctx.font = `${Math.min(20, canvas.width / 25, canvas.height / 20)}px "Press Start 2P"`;
                     const minutes = Math.floor(gameTime / 60); const seconds = Math.floor(gameTime % 60);
                     ctx.fillText(`All students captured in ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`, canvas.width / 2, canvas.height / 2);
                     ctx.fillStyle = '#ffcc00'; 
-                    ctx.font = `${Math.min(16, canvas.width / 35)}px "Press Start 2P"`;
-                    ctx.fillText("Press ENTER or Tap to play again", canvas.width / 2, canvas.height / 2 + Math.min(100, canvas.height/6));
-                    ctx.fillText("Press ESC for main menu", canvas.width / 2, canvas.height / 2 + Math.min(130, canvas.height/5));
+                    ctx.font = `${Math.min(16, canvas.width / 30, canvas.height / 25)}px "Press Start 2P"`;
+                    ctx.fillText("Tap or Press ENTER to Play Again", canvas.width / 2, canvas.height / 2 + Math.min(100, canvas.height/6));
+                    ctx.fillText("Press ESC for Main Menu", canvas.width / 2, canvas.height / 2 + Math.min(130, canvas.height/5));
                 },
                 handleInput: function(key) {
                      switch(key.toLowerCase()) {
@@ -478,15 +492,16 @@
                 player.dx = 0; player.dy = 0; player.radarActive = false; player.attractionField = false;
                 specialAbilities.cooldown = 0; specialAbilities.active = false; specialAbilities.selectedAbility = 0;
                 initializeStudents(); spawnPowerUps(); gameTime = 0;
-                environment.timeOfDay = 0.25; // Start in morning
-                updateCamera(); // Ensure camera is set correctly after player reset
+                environment.timeOfDay = 0.25; 
+                updateCamera(); 
                 gameUI.classList.remove('hidden');
-                gameUI.textContent = "Find and catch all your students!";
+                gameUI.textContent = "Find and catch all students!";
                 setTimeout(() => gameUI.classList.add('hidden'), 3000);
+                if (isTouchDevice) setupMobileControls(); // Setup joystick and buttons
             },
             restartGame: function() { this.startGame(); },
             showInstructionsScreen: function() { this.currentState = this.INSTRUCTIONS; },
-            handleKeyPress: function(key) { // Centralized key press for non-game states
+            handleKeyPress: function(key) { 
                 switch(this.currentState) {
                     case this.MENU: this.startScreen.handleInput(key); break;
                     case this.INSTRUCTIONS: this.instructionsScreen.handleInput(key); break;
@@ -497,16 +512,16 @@
             },
             update: function() {
                 if (this.currentState === this.GAME && !gamePaused) {
-                    if (player.captureCount >= students.length && students.length > 0) { // Check against actual number of students
+                    if (students.length > 0 && player.captureCount >= students.length ) { 
                         this.currentState = this.VICTORY;
                     }
-                    const TIME_LIMIT = 5 * 60; // 5 minutes
+                    const TIME_LIMIT = 5 * 60; 
                     if (gameTime > TIME_LIMIT && player.captureCount < students.length) {
                         this.currentState = this.GAME_OVER;
                     }
                 }
             },
-            draw: function() { // Centralized draw for non-game states
+            draw: function() { 
                  switch(this.currentState) {
                     case this.MENU: this.startScreen.draw(); break;
                     case this.INSTRUCTIONS: this.instructionsScreen.draw(); break;
@@ -526,15 +541,10 @@
         function generateSeatPositions() {
             const table = tables[KREMER_TABLE_INDEX]; const seats = [];
             const spacing = TILE_SIZE * 1.5; const numSeatsAround = 15;
-            // Seats above the table
             for (let i = 0; i < Math.floor(table.width / spacing) && seats.length < numSeatsAround; i++) seats.push({ x: table.x + i * spacing + TILE_SIZE * 0.25, y: table.y - TILE_SIZE * 1.5 });
-            // Seats to the right of the table
             for (let i = 0; i < Math.floor(table.height / spacing) && seats.length < numSeatsAround; i++) seats.push({ x: table.x + table.width + TILE_SIZE, y: table.y + i * spacing + TILE_SIZE * 0.25 });
-            // Seats below the table
             for (let i = 0; i < Math.floor(table.width / spacing) && seats.length < numSeatsAround; i++) seats.push({ x: table.x + i * spacing + TILE_SIZE * 0.25, y: table.y + table.height + TILE_SIZE * 0.5 });
-            // Seats to the left of the table
             for (let i = 0; i < Math.floor(table.height / spacing) && seats.length < numSeatsAround; i++) seats.push({ x: table.x - TILE_SIZE * 1.5, y: table.y + i * spacing + TILE_SIZE * 0.25 });
-            // Fallback for remaining seats if not enough space around table
             while (seats.length < numSeatsAround && seats.length < studentNames.length) seats.push({ x: table.x + getRandomInt(-5, 5) * TILE_SIZE, y: table.y + getRandomInt(-5, 5) * TILE_SIZE });
             return seats.slice(0, Math.min(numSeatsAround, studentNames.length));
         }
@@ -552,15 +562,11 @@
                     attempts++; validPosition = true;
                     studentX = getRandomInt(TILE_SIZE * 2, WORLD_WIDTH - TILE_SIZE * 3);
                     studentY = getRandomInt(TILE_SIZE * 2, WORLD_HEIGHT - TILE_SIZE * 3);
-                    // Check collision with any table (expanded check area)
                     for (const table of tables) if (checkCollision({x: studentX - TILE_SIZE, y: studentY - TILE_SIZE, width: TILE_SIZE * 3, height: TILE_SIZE * 3}, table)) { validPosition = false; break; }
                     if (validPosition) for (const pos of positions) if (Math.sqrt(Math.pow(studentX - pos.x, 2) + Math.pow(studentY - pos.y, 2)) < minDistanceBetweenStudents) { validPosition = false; break; }
-                    // Check distance from player's starting position
                     if (Math.sqrt(Math.pow(studentX - playerStartX, 2) + Math.pow(studentY - playerStartY, 2)) < TILE_SIZE * 15) validPosition = false;
-                    // Ensure not spawning on Ziv's table specifically
                     if (tables[1] && checkCollision({x: studentX, y: studentY, width: TILE_SIZE, height: TILE_SIZE}, tables[1])) validPosition = false;
-
-                    if (attempts > 200) { // Fallback if too many attempts
+                    if (attempts > 200) { 
                         studentX = getRandomInt(TILE_SIZE, WORLD_WIDTH - TILE_SIZE * 2); 
                         studentY = getRandomInt(TILE_SIZE, WORLD_HEIGHT - TILE_SIZE * 2); 
                         break; 
@@ -572,7 +578,7 @@
         }
         
         function initializeStudents() {
-            students.length = 0; // Clear existing students
+            students.length = 0; 
             const numStudentsToSpawn = Math.min(15, studentNames.length, seatPositions.length);
             const validPositions = findValidPositions(numStudentsToSpawn);
 
@@ -586,7 +592,7 @@
                     wanderTargetX: validPositions[i].x, wanderTargetY: validPositions[i].y,
                     seatX: seatPositions[i].x, seatY: seatPositions[i].y,
                     speed: 1.5 + Math.random() * 0.5, runSpeed: 2.5 + Math.random() * 0.7, returnSpeed: 3,
-                    wanderTimer: 0, wanderDelay: getRandomInt(60, 200), // Frames
+                    wanderTimer: 0, wanderDelay: getRandomInt(60, 200), 
                     lastDirection: { x: 0, y: 0 },
                     personality: { bravery: Math.random() * 0.6 + 0.2, intelligence: Math.random() * 0.7 + 0.1, stubbornness: Math.random() },
                     escapeTimer: 0, escapeFailCounter: 0, messageTimer: 0, currentMessage: "", frozenTimer: 0
@@ -595,7 +601,7 @@
         }
 
         function checkCollision(rect1, rect2) {
-            if (!rect1 || !rect2) return false; // Safety check
+            if (!rect1 || !rect2) return false; 
             return rect1.x < rect2.x + rect2.width &&
                    rect1.x + rect1.width > rect2.x &&
                    rect1.y < rect2.y + rect2.height &&
@@ -606,33 +612,31 @@
             const dx = student.x - teacher.x; const dy = student.y - teacher.y;
             let targetX, targetY;
 
-            if (student.personality.intelligence > 0.6) { // Smarter students try to hide
+            if (student.personality.intelligence > 0.6) { 
                 let bestHidingSpot = null; let maxScore = -Infinity;
                 tables.forEach(table => {
-                    if (table === tables[KREMER_TABLE_INDEX]) return; // Don't hide at Kremer's table
+                    if (table === tables[KREMER_TABLE_INDEX]) return; 
                     const tableCenterX = table.x + table.width / 2; const tableCenterY = table.y + table.height / 2;
                     const teacherToTableX = tableCenterX - teacher.x; const teacherToTableY = tableCenterY - teacher.y;
                     const distTeacherToTable = Math.sqrt(teacherToTableX*teacherToTableX + teacherToTableY*teacherToTableY) || 1;
-                    // Point behind the table relative to the teacher
                     const hideX = tableCenterX + (teacherToTableX / distTeacherToTable) * (table.width/2 + TILE_SIZE);
                     const hideY = tableCenterY + (teacherToTableY / distTeacherToTable) * (table.height/2 + TILE_SIZE);
                     const distStudentToHide = distance(student, {x: hideX, y: hideY, width:1, height:1});
-                    let score = (1000 / (distStudentToHide + 1)) + distTeacherToTable; // Prioritize closer spots further from teacher
-                    if (isPathBlocked(student.x, student.y, hideX, hideY)) score -= 500; // Penalize blocked paths
+                    let score = (1000 / (distStudentToHide + 1)) + distTeacherToTable; 
+                    if (isPathBlocked(student.x, student.y, hideX, hideY)) score -= 500; 
                     if (score > maxScore) { maxScore = score; bestHidingSpot = { x: hideX, y: hideY }; }
                 });
                 if (bestHidingSpot) { targetX = bestHidingSpot.x; targetY = bestHidingSpot.y; }
-                else { // Fallback: simple flee
+                else { 
                     const escapeDist = TILE_SIZE * (10 + 5 * student.personality.bravery);
                     const currentDist = Math.sqrt(dx * dx + dy * dy) || 1;
                     targetX = student.x + (dx / currentDist) * escapeDist; targetY = student.y + (dy / currentDist) * escapeDist;
                 }
-            } else { // Less intelligent students just run directly away
-                const escapeDist = TILE_SIZE * (10 + 5 * student.personality.bravery); // Braver students run further
-                const currentDist = Math.sqrt(dx * dx + dy * dy) || 1; // Avoid division by zero
+            } else { 
+                const escapeDist = TILE_SIZE * (10 + 5 * student.personality.bravery); 
+                const currentDist = Math.sqrt(dx * dx + dy * dy) || 1; 
                 targetX = student.x + (dx / currentDist) * escapeDist; targetY = student.y + (dy / currentDist) * escapeDist;
             }
-            // Clamp target to world bounds
             targetX = Math.max(TILE_SIZE, Math.min(targetX, WORLD_WIDTH - TILE_SIZE * 2));
             targetY = Math.max(TILE_SIZE, Math.min(targetY, WORLD_HEIGHT - TILE_SIZE * 2));
             return { x: targetX, y: targetY };
@@ -640,7 +644,7 @@
 
         function isPathBlocked(startX, startY, endX, endY) {
             const dist = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
-            const steps = Math.max(1, Math.ceil(dist / (TILE_SIZE / 2))); // Check every half tile
+            const steps = Math.max(1, Math.ceil(dist / (TILE_SIZE / 2))); 
             for (let i = 0; i <= steps; i++) {
                 const t = i / steps;
                 const checkX = startX + (endX - startX) * t; const checkY = startY + (endY - startY) * t;
@@ -650,35 +654,33 @@
         }
 
         function findPathAroundObstacles(student, targetX, targetY) {
-            // If direct path is clear, use it
             if (!isPathBlocked(student.x + student.width/2, student.y + student.height/2, targetX, targetY)) return { x: targetX, y: targetY };
             
-            const possibleWaypoints = []; const checkAngles = 16; // Check 16 directions
+            const possibleWaypoints = []; const checkAngles = 16; 
             for (let i = 0; i < checkAngles; i++) {
                 const angle = (i / checkAngles) * Math.PI * 2;
-                const dist = TILE_SIZE * (5 + student.personality.intelligence * 5); // Smarter students look further
+                const dist = TILE_SIZE * (5 + student.personality.intelligence * 5); 
                 const wpX = student.x + student.width/2 + Math.cos(angle) * dist; const wpY = student.y + student.height/2 + Math.sin(angle) * dist;
                 
                 if (wpX > 0 && wpX < WORLD_WIDTH && wpY > 0 && wpY < WORLD_HEIGHT && 
                     !isPathBlocked(student.x + student.width/2, student.y + student.height/2, wpX, wpY)) {
                     const distToTarget = Math.sqrt(Math.pow(wpX - targetX, 2) + Math.pow(wpY - targetY, 2));
                     const directDistToTarget = Math.sqrt(Math.pow(student.x - targetX, 2) + Math.pow(student.y - targetY, 2));
-                    // Score waypoints: lower is better for distToTarget, also prefer waypoints that make progress
-                    const score = distToTarget + Math.abs(directDistToTarget - distToTarget) * 0.5; // Heuristic
+                    const score = distToTarget + Math.abs(directDistToTarget - distToTarget) * 0.5; 
                     possibleWaypoints.push({ x: wpX, y: wpY, score: score });
                 }
             }
             if (possibleWaypoints.length > 0) { 
-                possibleWaypoints.sort((a, b) => a.score - b.score); // Sort by best score (lowest)
+                possibleWaypoints.sort((a, b) => a.score - b.score); 
                 return possibleWaypoints[0]; 
             }
-            return { x: targetX, y: targetY }; // Fallback: original target if no good waypoint
+            return { x: targetX, y: targetY }; 
         }
 
         function spawnPowerUps() {
-            powerUps.length = 0; // Clear existing powerups
+            powerUps.length = 0; 
             const maxPowerUps = 5;
-            const count = Math.min(maxPowerUps, (students.length - player.captureCount) / 2); // Spawn fewer if fewer students left
+            const count = Math.min(maxPowerUps, Math.floor((students.length - player.captureCount) / 2.5) +1 ); 
 
             for (let i = 0; i < count; i++) {
                 let x, y, validPosition; let attempts = 0;
@@ -686,16 +688,14 @@
                     validPosition = true; attempts++;
                     x = getRandomInt(TILE_SIZE * 2, WORLD_WIDTH - TILE_SIZE * 3); y = getRandomInt(TILE_SIZE * 2, WORLD_HEIGHT - TILE_SIZE * 3);
                     const tempPowerUp = {x, y, width: TILE_SIZE, height: TILE_SIZE};
-                    // Check collision with tables (expanded check area to avoid spawning too close)
                     for (const table of tables) if (checkCollision(tempPowerUp, {x: table.x - TILE_SIZE, y: table.y - TILE_SIZE, width: table.width + TILE_SIZE*2, height: table.height + TILE_SIZE*2})) { validPosition = false; break; }
-                    if (validPosition) for (const pUp of powerUps) if (distance(tempPowerUp, pUp) < TILE_SIZE * 8) { validPosition = false; break; } // Min distance between powerups
+                    if (validPosition) for (const pUp of powerUps) if (distance(tempPowerUp, pUp) < TILE_SIZE * 8) { validPosition = false; break; } 
                     
-                    // Avoid spawning too close to player's start
                     const kremerTable = tables[KREMER_TABLE_INDEX];
                     const playerStartX = kremerTable.x + kremerTable.width / 2; const playerStartY = kremerTable.y + kremerTable.height + TILE_SIZE * 2;
                     if (distance(tempPowerUp, {x:playerStartX, y:playerStartY, width:1, height:1}) < TILE_SIZE * 10) validPosition = false;
                     
-                    if (attempts > 100) break; // Prevent infinite loop
+                    if (attempts > 100) break; 
                 } while (!validPosition);
 
                 if (validPosition) {
@@ -708,24 +708,20 @@
         function updatePowerUps() {
             if (gamePaused) return;
             for (let i = powerUps.length - 1; i >= 0; i--) {
-                const powerUp = powerUps[i]; powerUp.pulseTimer += 0.05; // For pulsing animation
+                const powerUp = powerUps[i]; powerUp.pulseTimer += 0.05; 
                 if (checkCollision(player, powerUp)) {
                     powerUp.type.effect();
-                    powerUps.splice(i, 1); // Remove collected power-up
+                    powerUps.splice(i, 1); 
                 }
             }
-            // Occasionally spawn new power-ups if few are left
-            if (powerUps.length < 2 && Math.random() < 0.002 && (students.length - player.captureCount > 0) ) spawnPowerUps();
+            if (powerUps.length < 2 && Math.random() < 0.0025 && (students.length - player.captureCount > 0) ) spawnPowerUps();
         }
 
         function updateCamera() {
-            // Camera follows player with a slight lag
             const targetCamX = player.x - camera.width / (2 * camera.zoom) + player.width / 2;
             const targetCamY = player.y - camera.height / (2 * camera.zoom) + player.height / 2;
-            camera.x += (targetCamX - camera.x) * 0.08; // Smoothing factor
+            camera.x += (targetCamX - camera.x) * 0.08; 
             camera.y += (targetCamY - camera.y) * 0.08;
-
-            // Keep camera within world bounds
             camera.x = Math.max(0, Math.min(camera.x, WORLD_WIDTH - camera.width / camera.zoom));
             camera.y = Math.max(0, Math.min(camera.y, WORLD_HEIGHT - camera.height / camera.zoom));
         }
@@ -733,19 +729,23 @@
         function updatePlayer() {
             if (gamePaused) return;
 
-            // Handle sprinting and stamina
+            let mobileSpeedFactor = 1.0;
+            if (isTouchDevice) {
+                mobileSpeedFactor = 1.5; // Make player 50% faster on mobile
+            }
+
             if (player.isSprinting && keys.shift && player.stamina > 0) {
-                player.currentSpeed = player.baseSpeed * player.sprintMultiplier;
+                player.currentSpeed = player.baseSpeed * player.sprintMultiplier * mobileSpeedFactor;
                 player.stamina = Math.max(0, player.stamina - player.staminaDepletionRate);
-                if (player.stamina <= 0) player.isSprinting = false; // Auto-stop sprint if out of stamina
+                if (player.stamina <= 0) player.isSprinting = false; 
             } else {
-                player.currentSpeed = player.baseSpeed;
-                player.isSprinting = false; // Ensure isSprinting is false if not actively sprinting
+                player.currentSpeed = player.baseSpeed * mobileSpeedFactor;
+                // player.isSprinting = false; // This is handled by keyup/touchend for sprint button
                 if (player.stamina < player.maxStamina) player.stamina = Math.min(player.maxStamina, player.stamina + player.staminaRegenRate);
             }
 
             let moveDeltaX = 0; let moveDeltaY = 0;
-            if (player.dx !== 0 || player.dy !== 0) { // Only calculate if there's directional input
+            if (player.dx !== 0 || player.dy !== 0) { 
                 moveDeltaX = player.dx * player.currentSpeed; 
                 moveDeltaY = player.dy * player.currentSpeed;
             }
@@ -753,39 +753,33 @@
             player.targetX = player.x + moveDeltaX; 
             player.targetY = player.y + moveDeltaY;
 
-            // Smooth movement
             const smoothDx = player.targetX - player.x;
             const smoothDy = player.targetY - player.y;
-            if (Math.abs(smoothDx) > 0.1 || Math.abs(smoothDy) > 0.1) { // Apply smoothing if movement is significant
+            if (Math.abs(smoothDx) > 0.1 || Math.abs(smoothDy) > 0.1) { 
                 player.x += smoothDx * player.movementSmoothing;
                 player.y += smoothDy * player.movementSmoothing;
-            } else { // Snap to target if very close to avoid jitter
+            } else { 
                 player.x = player.targetX;
                 player.y = player.targetY;
             }
 
-            // World boundary collision
             player.x = Math.max(0, Math.min(player.x, WORLD_WIDTH - player.width));
             player.y = Math.max(0, Math.min(player.y, WORLD_HEIGHT - player.height));
 
-            // Obstacle collision (tables)
             for (const table of tables) {
                 if (checkCollision(player, table)) {
-                    // Determine overlap on each side
                     const overlapLeft = (player.x + player.width) - table.x;
                     const overlapRight = (table.x + table.width) - player.x;
                     const overlapTop = (player.y + player.height) - table.y;
                     const overlapBottom = (table.y + table.height) - player.y;
-
                     const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
 
-                    // Push player out of the table based on the smallest overlap
                     if (minOverlap === overlapLeft) player.x = table.x - player.width;
                     else if (minOverlap === overlapRight) player.x = table.x + table.width;
                     else if (minOverlap === overlapTop) player.y = table.y - player.height;
                     else if (minOverlap === overlapBottom) player.y = table.y + table.height;
                     
-                    player.targetX = player.x; // Stop further movement into the obstacle
+                    player.targetX = player.x; 
                     player.targetY = player.y;
                 }
             }
@@ -794,26 +788,24 @@
         function updateStudents() {
             if (gamePaused) return;
             students.forEach(student => {
-                if (student.frozenTimer && student.frozenTimer > 0) { student.frozenTimer--; return; } // Skip movement if frozen
+                if (student.frozenTimer && student.frozenTimer > 0) { student.frozenTimer--; return; } 
 
                 if (student.isCaught) {
-                    // Move student to their designated seat
                     const targetX = student.seatX; const targetY = student.seatY;
                     const diffX = targetX - student.x; const diffY = targetY - student.y;
                     const distToSeat = Math.sqrt(diffX * diffX + diffY * diffY);
 
-                    if (distToSeat < student.returnSpeed) { student.x = targetX; student.y = targetY; } // Snap to seat if close
+                    if (distToSeat < student.returnSpeed) { student.x = targetX; student.y = targetY; } 
                     else {
                         let moveX = (diffX / distToSeat) * student.returnSpeed; 
                         let moveY = (diffY / distToSeat) * student.returnSpeed;
                         let nextX = student.x + moveX; let nextY = student.y + moveY;
                         
-                        // Simple collision avoidance while returning (try to slide along obstacles)
                         for (const table of tables) {
                             if (checkCollision({ ...student, x: nextX, y: nextY }, table)) {
-                                if (Math.abs(diffX) > Math.abs(diffY)) { // Prefer vertical detour if horizontal collision
+                                if (Math.abs(diffX) > Math.abs(diffY)) { 
                                      if (!isPathBlocked(student.x, student.y, student.x, student.y + Math.sign(diffY) * student.returnSpeed)) { moveX = 0; moveY = Math.sign(diffY) * student.returnSpeed * 0.8; }
-                                } else { // Prefer horizontal detour if vertical collision
+                                } else { 
                                      if (!isPathBlocked(student.x, student.y, student.x + Math.sign(diffX) * student.returnSpeed, student.y)) { moveX = Math.sign(diffX) * student.returnSpeed * 0.8; moveY = 0; }
                                 }
                                 break;
@@ -821,8 +813,7 @@
                         }
                         student.x += moveX; student.y += moveY;
                     }
-                } else { // Student is not caught
-                    // Attraction field effect
+                } else { 
                     if (player.attractionField) {
                         const distToPlayer = distance(student, player);
                         if (distToPlayer < player.attractionRadius) {
@@ -835,21 +826,19 @@
                     }
 
                     const distToTeacher = distance(student, player);
-                    // Check if student sees the teacher
                     if (distToTeacher < DETECTION_RADIUS && !student.isAfraidOfTeacher) {
-                        if (Math.random() > student.personality.bravery) { // Braver students are less likely to get scared
+                        if (Math.random() > student.personality.bravery) { 
                             student.isAfraidOfTeacher = true; student.isWandering = false;
-                            student.currentMessage = "!"; student.messageTimer = 60; // Show "!" for 1 second
+                            student.currentMessage = "!"; student.messageTimer = 60; 
                         }
-                    } else if (distToTeacher >= DETECTION_RADIUS * 1.5 && student.isAfraidOfTeacher) { // Student might calm down if teacher is far
-                        if (Math.random() < 0.05 / (student.personality.stubbornness + 0.1)) { // Stubborn students stay scared longer
-                            student.isAfraidOfTeacher = false; student.isWandering = true; student.wanderTimer = student.wanderDelay; // Reset wander
+                    } else if (distToTeacher >= DETECTION_RADIUS * 1.5 && student.isAfraidOfTeacher) { 
+                        if (Math.random() < 0.05 / (student.personality.stubbornness + 0.1)) { 
+                            student.isAfraidOfTeacher = false; student.isWandering = true; student.wanderTimer = student.wanderDelay; 
                         }
                     }
                     if (student.messageTimer > 0) student.messageTimer--; else student.currentMessage = "";
 
                     if (student.isAfraidOfTeacher) {
-                        // Student is scared, try to run away
                         const escapeTarget = findPathAwayFromTeacher(student, player);
                         const finalPathTarget = findPathAroundObstacles(student, escapeTarget.x, escapeTarget.y);
                         const diffX = finalPathTarget.x - student.x; const diffY = finalPathTarget.y - student.y;
@@ -857,7 +846,6 @@
 
                         if (distToTarget > student.runSpeed) {
                             let moveX = (diffX / distToTarget) * student.runSpeed; let moveY = (diffY / distToTarget) * student.runSpeed;
-                            // Add some inertia/smoothing to movement
                             moveX = moveX * 0.8 + student.lastDirection.x * 0.2; 
                             moveY = moveY * 0.8 + student.lastDirection.y * 0.2;
                             const moveLen = Math.sqrt(moveX*moveX + moveY*moveY) || 1;
@@ -867,31 +855,29 @@
                             let nextX = student.x + moveX; let nextY = student.y + moveY; let collided = false;
                             for (const table of tables) if (checkCollision({ ...student, x: nextX, y: nextY }, table)) { 
                                 collided = true; 
-                                student.x -= moveX * 0.5; student.y -= moveY * 0.5; // Bounce back slightly
-                                student.lastDirection = {x: -student.lastDirection.x *0.5 , y: -student.lastDirection.y*0.5}; // Change direction
+                                student.x -= moveX * 0.5; student.y -= moveY * 0.5; 
+                                student.lastDirection = {x: -student.lastDirection.x *0.5 , y: -student.lastDirection.y*0.5}; 
                                 student.escapeFailCounter++; 
-                                if(student.escapeFailCounter > 5) { // If stuck too many times, try to unstick
+                                if(student.escapeFailCounter > 5) { 
                                     student.isAfraidOfTeacher = false; student.isWandering = true; student.wanderTimer = 0; student.escapeFailCounter = 0; 
                                 }
                                 break; 
                             }
                             if (!collided) { student.x = nextX; student.y = nextY; student.escapeFailCounter = 0; }
-                        } else { // Reached escape target or very close
-                            student.escapeTimer++; if(student.escapeTimer > 120) { // If "safe" for a while, may calm down
+                        } else { 
+                            student.escapeTimer++; if(student.escapeTimer > 120) { 
                                 student.isAfraidOfTeacher = false; student.isWandering = true; student.escapeTimer = 0;
                             }
                         }
                         student.x = Math.max(0, Math.min(student.x, WORLD_WIDTH - student.width)); 
                         student.y = Math.max(0, Math.min(student.y, WORLD_HEIGHT - student.height));
                     } else if (student.isWandering) {
-                        // Student is wandering around
                         student.wanderTimer++;
-                        if (student.wanderTimer >= student.wanderDelay || distance(student, {x: student.wanderTargetX, y: student.wanderTargetY, width:1, height:1}) < student.speed * 2) { // New target if timer up or reached current
-                            student.wanderTimer = 0; student.wanderDelay = getRandomInt(100, 300); // New delay
+                        if (student.wanderTimer >= student.wanderDelay || distance(student, {x: student.wanderTargetX, y: student.wanderTargetY, width:1, height:1}) < student.speed * 2) { 
+                            student.wanderTimer = 0; student.wanderDelay = getRandomInt(100, 300); 
                             const angle = Math.random() * Math.PI * 2; const wanderDist = TILE_SIZE * getRandomInt(5, 15);
                             student.wanderTargetX = student.x + Math.cos(angle) * wanderDist; 
                             student.wanderTargetY = student.y + Math.sin(angle) * wanderDist;
-                            // Clamp wander target to world bounds
                             student.wanderTargetX = Math.max(TILE_SIZE, Math.min(student.wanderTargetX, WORLD_WIDTH - TILE_SIZE*2));
                             student.wanderTargetY = Math.max(TILE_SIZE, Math.min(student.wanderTargetY, WORLD_HEIGHT - TILE_SIZE*2));
                         }
@@ -900,7 +886,6 @@
 
                         if (distToTarget > student.speed) {
                             let moveX = (diffX / distToTarget) * student.speed; let moveY = (diffY / distToTarget) * student.speed;
-                            // Smoothing/inertia for wander
                             moveX = moveX * 0.7 + student.lastDirection.x * 0.3; 
                             moveY = moveY * 0.7 + student.lastDirection.y * 0.3;
                             const moveLen = Math.sqrt(moveX*moveX + moveY*moveY) || 1;
@@ -909,20 +894,17 @@
 
                             let nextX = student.x + moveX; let nextY = student.y + moveY; let collision = false;
                             const futureStudent = { ...student, x: nextX, y: nextY };
-                            // Check collision with tables
                             for (const table of tables) if (checkCollision(futureStudent, table)) { collision = true; break; }
-                            // Check collision with other non-caught students (simple sphere check)
                             for (const otherStudent of students) if (student.id !== otherStudent.id && !otherStudent.isCaught && distance(futureStudent, otherStudent) < TILE_SIZE * 1.5) { collision = true; break; }
                             
                             if (!collision) { student.x = nextX; student.y = nextY; } 
-                            else { student.wanderTimer = student.wanderDelay; student.lastDirection = {x:0, y:0}; } // New target if collided
-                        } else student.wanderTimer = student.wanderDelay; // Reached target, get new one next frame
+                            else { student.wanderTimer = student.wanderDelay; student.lastDirection = {x:0, y:0}; } 
+                        } else student.wanderTimer = student.wanderDelay; 
 
                         student.x = Math.max(0, Math.min(student.x, WORLD_WIDTH - student.width)); 
                         student.y = Math.max(0, Math.min(student.y, WORLD_HEIGHT - student.height));
                     }
 
-                    // Check for capture
                     if (distance(player, student) < CAPTURE_RADIUS && !student.isCaught) {
                         student.isCaught = true; student.isWandering = false; student.isAfraidOfTeacher = false;
                         player.captureCount++;
@@ -935,7 +917,7 @@
         }
 
         function updateGameTime() {
-            if (!gamePaused) gameTime += 1/60; // Assuming 60 FPS
+            if (!gamePaused) gameTime += 1/60; 
         }
 
         function update() {
@@ -948,22 +930,31 @@
                 updateCamera(); 
                 updateGameTime();
             }
-            gameStates.update(); // Update current game state (checks for win/loss)
+            gameStates.update(); 
         }
         
         // --- Drawing Functions ---
-        function drawRect(x, y, width, height, color) {
+        function drawRect(x, y, width, height, color, alpha = 1) {
+            const oldAlpha = ctx.globalAlpha;
+            ctx.globalAlpha = alpha;
             ctx.fillStyle = color; ctx.fillRect(x, y, width, height);
+            ctx.globalAlpha = oldAlpha;
         }
-        function drawText(text, x, y, color = '#fff', size = 10, align = 'center') {
+        function drawText(text, x, y, color = '#fff', size = 10, align = 'center', alpha = 1) {
+            const oldAlpha = ctx.globalAlpha;
+            ctx.globalAlpha = alpha;
             ctx.fillStyle = color; ctx.font = `${size}px 'Press Start 2P'`; ctx.textAlign = align; ctx.fillText(text, x, y);
+            ctx.globalAlpha = oldAlpha;
         }
-        function drawCircle(x, y, radius, color) {
+        function drawCircle(x, y, radius, color, alpha = 1) {
+            const oldAlpha = ctx.globalAlpha;
+            ctx.globalAlpha = alpha;
             ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = oldAlpha;
         }
+
         function drawGrid() {
             ctx.strokeStyle = 'rgba(58, 58, 58, 0.5)'; ctx.lineWidth = 0.5; const gridSize = TILE_SIZE * 5;
-            // Only draw grid visible in camera
             const startX = Math.floor(camera.x / gridSize) * gridSize; 
             const endX = Math.ceil((camera.x + camera.width / camera.zoom) / gridSize) * gridSize;
             const startY = Math.floor(camera.y / gridSize) * gridSize; 
@@ -974,157 +965,139 @@
         }
 
         function drawGame() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
-            ctx.save(); // Save current context state
-            ctx.scale(camera.zoom, camera.zoom); // Apply camera zoom
-            ctx.translate(-camera.x, -camera.y); // Apply camera pan
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            ctx.save(); 
+            ctx.scale(camera.zoom, camera.zoom); 
+            ctx.translate(-camera.x, -camera.y); 
 
-            // Draw background based on environment
             const bgColor = environment.getBackgroundColor();
             ctx.fillStyle = bgColor; 
-            ctx.fillRect(camera.x, camera.y, camera.width / camera.zoom, camera.height / camera.zoom); // Fill visible area
+            ctx.fillRect(camera.x, camera.y, camera.width / camera.zoom, camera.height / camera.zoom); 
             
-            ctx.globalAlpha = environment.getLightLevel(); // Apply light level
-            drawGrid();
+            const lightLevel = environment.getLightLevel();
+            // Draw grid with light level alpha
+            drawGrid(); // Grid is drawn before other elements, its alpha is handled by strokeStyle
 
-            // Draw tables
             tables.forEach(table => {
-                drawRect(table.x, table.y, table.width, table.height, table.color);
+                drawRect(table.x, table.y, table.width, table.height, table.color, lightLevel);
                 if (table.name === "Dining Table") {
                     const tabletopPadding = TILE_SIZE * 0.2;
-                    ctx.fillStyle = 'rgba(0,0,0,0.15)'; 
-                    ctx.fillRect(table.x + tabletopPadding, table.y + tabletopPadding, 
-                                 table.width - 2 * tabletopPadding, table.height - 2 * tabletopPadding);
+                    drawRect(table.x + tabletopPadding, table.y + tabletopPadding, 
+                                 table.width - 2 * tabletopPadding, table.height - 2 * tabletopPadding, 'rgba(0,0,0,0.15)', lightLevel);
                     const benchColor = '#A0522D'; 
                     const benchThickness = TILE_SIZE * 0.75;
                     const benchOffset = TILE_SIZE * 0.2;
-                    if (table.width > table.height) { // Horizontal table
-                        drawRect(table.x, table.y - benchThickness - benchOffset, table.width, benchThickness, benchColor);
-                        drawRect(table.x, table.y + table.height + benchOffset, table.width, benchThickness, benchColor);
-                    } else { // Vertical table
-                        drawRect(table.x - benchThickness - benchOffset, table.y, benchThickness, table.height, benchColor);
-                        drawRect(table.x + table.width + benchOffset, table.y, benchThickness, table.height, benchColor);
+                    if (table.width > table.height) { 
+                        drawRect(table.x, table.y - benchThickness - benchOffset, table.width, benchThickness, benchColor, lightLevel);
+                        drawRect(table.x, table.y + table.height + benchOffset, table.width, benchThickness, benchColor, lightLevel);
+                    } else { 
+                        drawRect(table.x - benchThickness - benchOffset, table.y, benchThickness, table.height, benchColor, lightLevel);
+                        drawRect(table.x + table.width + benchOffset, table.y, benchThickness, table.height, benchColor, lightLevel);
                     }
                 } else if (table.name !== "Obstacle") {
-                    drawText(table.name, table.x + table.width / 2, table.y + table.height / 2 - 5, '#eee', 8);
+                    drawText(table.name, table.x + table.width / 2, table.y + table.height / 2 - 5, '#eee', 8, 'center', lightLevel);
                 }
             });
 
-            // Draw Ziv
-            drawRect(ziv.x, ziv.y, ziv.width, ziv.height, ziv.color);
-            drawText(ziv.name, ziv.x + ziv.width / 2, ziv.y - 6, '#fff', 8);
+            drawRect(ziv.x, ziv.y, ziv.width, ziv.height, ziv.color, lightLevel);
+            drawText(ziv.name, ziv.x + ziv.width / 2, ziv.y - 6, '#fff', 8, 'center', lightLevel);
 
-            // Draw seats and caught students at seats
             seatPositions.forEach((seat) => {
                 const studentAtSeat = students.find(s => s.isCaught && Math.abs(s.x - seat.x) < TILE_SIZE/2 && Math.abs(s.y - seat.y) < TILE_SIZE/2);
                 if (studentAtSeat) {
-                    drawRect(seat.x, seat.y, TILE_SIZE, TILE_SIZE, studentAtSeat.color);
-                    drawText(studentAtSeat.name.substring(0,3), seat.x + TILE_SIZE / 2, seat.y - 6, '#fff', 7);
-                } else drawRect(seat.x, seat.y, TILE_SIZE, TILE_SIZE, '#555'); // Empty seat
+                    drawRect(seat.x, seat.y, TILE_SIZE, TILE_SIZE, studentAtSeat.color, lightLevel);
+                    drawText(studentAtSeat.name.substring(0,3), seat.x + TILE_SIZE / 2, seat.y - 6, '#fff', 7, 'center', lightLevel);
+                } else drawRect(seat.x, seat.y, TILE_SIZE, TILE_SIZE, '#555', lightLevel); 
             });
 
-            // Draw power-ups
             powerUps.forEach(powerUp => {
                 const pulseScale = 0.8 + Math.sin(powerUp.pulseTimer) * 0.2; const size = TILE_SIZE * pulseScale;
                 const pX = powerUp.x + TILE_SIZE/2; const pY = powerUp.y + TILE_SIZE/2;
-                // Outer glow
-                ctx.globalAlpha = environment.getLightLevel() * (0.3 + Math.sin(powerUp.pulseTimer * 1.5) * 0.2);
-                drawCircle(pX, pY, size/2 * 1.5, powerUp.type.color);
-                // Inner circle
-                ctx.globalAlpha = environment.getLightLevel();
-                drawCircle(pX, pY, size/2, powerUp.type.color);
-                drawText(powerUp.type.name.charAt(0), pX, pY + 4, '#fff', 12); // Letter indication
+                drawCircle(pX, pY, size/2 * 1.5, powerUp.type.color, lightLevel * (0.3 + Math.sin(powerUp.pulseTimer * 1.5) * 0.2));
+                drawCircle(pX, pY, size/2, powerUp.type.color, lightLevel);
+                drawText(powerUp.type.name.charAt(0), pX, pY + 4, '#fff', 12, 'center', lightLevel); 
             });
 
-            // Draw students
             students.forEach(s => {
-                // Draw student if not caught OR if caught but not yet at their seat
                 if (!s.isCaught || (s.isCaught && (Math.abs(s.x - s.seatX) > 1 || Math.abs(s.y - s.seatY) > 1))) {
-                    drawRect(s.x, s.y, s.width, s.height, s.color);
-                    drawText(s.name.substring(0,3), s.x + s.width / 2, s.y - 6, '#fff', 7); // Student name abbreviation
-                    if (s.currentMessage && s.messageTimer > 0) drawText(s.currentMessage, s.x + s.width / 2, s.y - 15, '#ffcc00', 12);
-                    else if (s.isAfraidOfTeacher) drawText("!", s.x + s.width / 2, s.y - 15, '#ff3333', 12); // Exclamation mark if scared
+                    drawRect(s.x, s.y, s.width, s.height, s.color, lightLevel);
+                    drawText(s.name.substring(0,3), s.x + s.width / 2, s.y - 6, '#fff', 7, 'center', lightLevel); 
+                    if (s.currentMessage && s.messageTimer > 0) drawText(s.currentMessage, s.x + s.width / 2, s.y - 15, '#ffcc00', 12, 'center', lightLevel);
+                    else if (s.isAfraidOfTeacher) drawText("!", s.x + s.width / 2, s.y - 15, '#ff3333', 12, 'center', lightLevel); 
 
-                    // Radar effect
                     if (player.radarActive && !s.isCaught) {
                         const dist = distance(player, s); const maxRadarDist = TILE_SIZE * 40;
                         if (dist < maxRadarDist) {
                             const radarIntensity = Math.max(0.2, 1 - dist / maxRadarDist);
                             const pulseSize = (4 + Math.sin(gameTime * 8 + s.id) * 2) * radarIntensity;
-                            drawCircle(s.x + s.width / 2, s.y + s.height / 2, pulseSize, `rgba(255, 100, 100, ${radarIntensity * 0.7})`);
+                            drawCircle(s.x + s.width / 2, s.y + s.height / 2, pulseSize, `rgba(255, 100, 100, ${radarIntensity * 0.7})`, lightLevel);
                         }
                     }
-                    // Frozen effect
                     if (s.frozenTimer && s.frozenTimer > 0) {
-                        ctx.fillStyle = `rgba(173, 216, 230, ${0.3 + (s.frozenTimer % 60) / 120})`; // Pulsing blue overlay
-                        ctx.fillRect(s.x - 2, s.y - 2, s.width + 4, s.height + 4);
-                        ctx.fillStyle = 'rgba(220, 250, 255, 0.6)'; // Ice particles
-                        for(let k=0; k<3; k++) drawRect(s.x + Math.random()*s.width - 2, s.y + Math.random()*s.height - 2, 4, 4, ctx.fillStyle);
+                        drawRect(s.x - 2, s.y - 2, s.width + 4, s.height + 4, `rgba(173, 216, 230, ${0.3 + (s.frozenTimer % 60) / 120})`, lightLevel);
+                        for(let k=0; k<3; k++) drawRect(s.x + Math.random()*s.width - 2, s.y + Math.random()*s.height - 2, 4, 4, 'rgba(220, 250, 255, 0.6)', lightLevel);
                     }
                 }
             });
 
-            // Draw player
-            drawRect(player.x, player.y, player.width, player.height, player.color);
-            drawText(player.name, player.x + player.width / 2, player.y - 6, '#fff', 8);
-            // Attraction field visual
+            drawRect(player.x, player.y, player.width, player.height, player.color, lightLevel);
+            drawText(player.name, player.x + player.width / 2, player.y - 6, '#fff', 8, 'center', lightLevel);
             if (player.attractionField) {
+                const oldGlobalAlpha = ctx.globalAlpha; // Need to manage alpha carefully with stroke
+                ctx.globalAlpha = lightLevel;
                 const pulse = Math.sin(gameTime * 6) * 0.1;
                 ctx.strokeStyle = `rgba(255, 0, 204, ${0.3 + pulse * 0.2})`; ctx.lineWidth = 2 + pulse;
                 ctx.beginPath(); ctx.arc(player.x + player.width/2, player.y + player.height/2, player.attractionRadius * (0.9 + pulse * 0.05) , 0, Math.PI * 2); ctx.stroke();
+                ctx.globalAlpha = oldGlobalAlpha;
             }
             
-            ctx.globalAlpha = 1; // Reset global alpha before restoring
-            ctx.restore(); // Restore context state (removes camera transforms and globalAlpha)
+            ctx.restore(); 
             
-            drawUI(); // Draw UI elements on top, not affected by camera
+            drawUI(); 
         }
 
         function drawUI() {
-            const barWidth = Math.min(150, canvas.width * 0.25); // Responsive bar width
-            const barHeight = Math.min(15, canvas.height * 0.03);
-            const padding = Math.min(10, canvas.width * 0.02); // Responsive padding
-            const fontSizeSmall = Math.max(8, Math.min(10, canvas.width / 60)); // Responsive font size
-            const fontSizeMedium = Math.max(10, Math.min(12, canvas.width / 50));
+            const barWidth = Math.min(150, canvas.width * 0.20); 
+            const barHeight = Math.min(15, canvas.height * 0.025);
+            const padding = Math.min(10, Math.min(canvas.width, canvas.height) * 0.015); 
+            const fontSizeSmall = Math.max(8, Math.min(10, Math.min(canvas.width, canvas.height) / 60));
+            const fontSizeMedium = Math.max(10, Math.min(12, Math.min(canvas.width, canvas.height) / 50));
 
-            // Stamina Bar
             drawRect(padding, padding, barWidth, barHeight, 'rgba(0,0,0,0.5)');
-            const staminaWidth = (player.stamina / player.maxStamina) * (barWidth - 4); // Inner bar padding
+            const staminaWidth = (player.stamina / player.maxStamina) * (barWidth - 4); 
             ctx.fillStyle = player.isSprinting ? '#ff9900' : '#22cc22';
             ctx.fillRect(padding + 2, padding + 2, staminaWidth > 0 ? staminaWidth : 0, barHeight - 4);
 
-            // Ability Cooldown Bar
             const abilityBarY = padding + barHeight + padding / 2;
             drawRect(padding, abilityBarY, barWidth, barHeight, 'rgba(0,0,0,0.5)');
             const cooldownWidth = (1 - specialAbilities.cooldown / specialAbilities.maxCooldown) * (barWidth - 4);
             ctx.fillStyle = specialAbilities.cooldown === 0 ? '#22aaff' : '#aaaaaa';
             ctx.fillRect(padding + 2, abilityBarY + 2, cooldownWidth > 0 ? cooldownWidth : 0, barHeight - 4);
             
-            // Ability Name
-            drawText(specialAbilities.available[specialAbilities.selectedAbility].name, padding + barWidth + padding, abilityBarY + barHeight/2 + fontSizeSmall/2, '#fff', fontSizeSmall, 'left');
+            drawText(specialAbilities.available[specialAbilities.selectedAbility].name, padding + barWidth + padding, abilityBarY + barHeight/2 + fontSizeSmall/2.5, '#fff', fontSizeSmall, 'left');
 
-            // Students Caught
             const studentsTextY = abilityBarY + barHeight + padding;
             drawText(`Students: ${player.captureCount}/${students.length}`, padding, studentsTextY, '#fff', fontSizeMedium, 'left');
 
-            // Game Time
             const gameTimeTextY = studentsTextY + fontSizeMedium + padding / 2;
             const minutes = Math.floor(gameTime / 60); const seconds = Math.floor(gameTime % 60);
             drawText(`Time: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`, padding, gameTimeTextY, '#fff', fontSizeMedium, 'left');
 
-            // In-Game Time of Day (Top Right)
             drawText(`Day Time: ${Math.floor(environment.timeOfDay*24)}:00`, canvas.width - padding, padding + fontSizeSmall, '#fff', fontSizeSmall, 'right');
             
-            // Controls Hint (Bottom Center, disappears after a while)
             if (gameTime < 10 && gameStates.currentState === gameStates.GAME) {
-                const hintText = (window.innerWidth < 768) ? 'Drag:Move, Tap Zones:Sprint/Ability' : 'WASD/Arrows:Move, SHIFT:Sprint, SPACE:Ability, Q:Cycle, P:Pause';
-                drawText(hintText, canvas.width / 2, canvas.height - padding, '#ccc', fontSizeSmall);
+                const hintText = isTouchDevice ? 'Joystick:Move, Buttons:Actions' : 'WASD/Arrows:Move, SHIFT:Sprint, SPACE:Ability, Q:Cycle, P:Pause';
+                drawText(hintText, canvas.width / 2, canvas.height - padding - 5, '#ccc', fontSizeSmall);
+            }
+
+            if (isTouchDevice) { // Draw mobile controls if on touch device
+                drawMobileControls();
             }
         }
 
         function draw() {
             if (gameStates.currentState === gameStates.GAME) drawGame();
-            else gameStates.draw(); // Draw menus/screens
+            else gameStates.draw(); 
         }
 
         function gameLoop() { 
@@ -1138,12 +1111,10 @@
 
         function handleKeyDown(e) {
             const key = e.key.toLowerCase();
-            // Handle input for non-game states (menus, etc.)
             if (gameStates.currentState !== gameStates.GAME) { 
-                gameStates.handleKeyPress(e.key); // Pass original key for case sensitivity if needed by menu
+                gameStates.handleKeyPress(e.key); 
                 return; 
             }
-            // Prevent default for game control keys
             if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d", "shift", " ", "q", "p", "escape"].includes(key)) e.preventDefault();
             
             switch (key) {
@@ -1152,13 +1123,12 @@
                 case 'arrowleft': case 'a': keys.left = true; break;
                 case 'arrowright': case 'd': keys.right = true; break;
                 case 'shift': keys.shift = true; player.isSprinting = true; break;
-                case ' ': keys.space = true; specialAbilities.activateAbility(); break; // Space for ability
+                case ' ': keys.space = true; specialAbilities.activateAbility(); break; 
                 case 'q': keys.q = true; specialAbilities.cycleAbility(); break;
                 case 'p': 
                     if (gameStates.currentState === gameStates.GAME) { 
                         gamePaused = !gamePaused; 
                         if (gamePaused) gameStates.currentState = gameStates.PAUSED;
-                        // else gameStates.currentState = gameStates.GAME; // Already handled by pauseMenu resume
                     } 
                     break;
                 case 'escape': 
@@ -1167,11 +1137,11 @@
                     } 
                     break;
             }
-            if (gameStates.currentState === gameStates.GAME) updatePlayerVelocity();
+            if (gameStates.currentState === gameStates.GAME && !isTouchDevice) updatePlayerVelocity(); // Keyboard updates velocity
         }
         function handleKeyUp(e) {
             const key = e.key.toLowerCase();
-            if (gameStates.currentState !== gameStates.GAME) return; // Only handle game keys
+            if (gameStates.currentState !== gameStates.GAME) return; 
             switch (key) {
                 case 'arrowup': case 'w': keys.up = false; break;
                 case 'arrowdown': case 's': keys.down = false; break;
@@ -1181,13 +1151,14 @@
                 case ' ': keys.space = false; break; 
                 case 'q': keys.q = false; break;
             }
-            if (gameStates.currentState === gameStates.GAME) updatePlayerVelocity();
+            if (gameStates.currentState === gameStates.GAME && !isTouchDevice) updatePlayerVelocity();
         }
-        function updatePlayerVelocity() {
+        function updatePlayerVelocity() { // Used by keyboard
+            if (isTouchDevice && joystick.active) return; // Joystick has priority on touch devices
+
             player.dx = 0; player.dy = 0;
             if (keys.up) player.dy = -1; if (keys.down) player.dy = 1;
             if (keys.left) player.dx = -1; if (keys.right) player.dx = 1;
-            // Normalize diagonal movement
             if (player.dx !== 0 && player.dy !== 0) { 
                 const length = Math.sqrt(player.dx * player.dx + player.dy * player.dy); 
                 player.dx /= length; player.dy /= length; 
@@ -1196,158 +1167,241 @@
         document.addEventListener('keydown', handleKeyDown); 
         document.addEventListener('keyup', handleKeyUp);
 
-        // --- Touch Controls ---
-        let touchStartX = 0; let touchStartY = 0; const touchThreshold = 15; // Slightly smaller threshold for responsiveness
-        let lastTapTime = 0; const doubleTapThreshold = 300; // ms for double tap
-        let isDragging = false;
+        // --- Mobile Touch Controls ---
+        const joystick = {
+            x: 0, y: 0, radius: 0, stickX: 0, stickY: 0, stickRadius: 0,
+            active: false, touchId: null, maxDisplacement: 0, visible: false
+        };
+        const mobileButtons = {
+            sprint: { x: 0, y: 0, width: 0, height: 0, text: "RUN", pressed: false, visible: false, touchId: null },
+            activate: { x: 0, y: 0, width: 0, height: 0, text: "USE", pressed: false, visible: false },
+            cycle: { x: 0, y: 0, width: 0, height: 0, text: "SWAP", pressed: false, visible: false }
+        };
+
+        function setupMobileControls() {
+            if (!isTouchDevice) return;
+            joystick.visible = true;
+            mobileButtons.sprint.visible = true;
+            mobileButtons.activate.visible = true;
+            mobileButtons.cycle.visible = true;
+
+            // Joystick (bottom-left)
+            joystick.radius = Math.min(canvas.width, canvas.height) * 0.12; // Base size
+            joystick.x = joystick.radius * 1.5;
+            joystick.y = canvas.height - joystick.radius * 1.5;
+            joystick.stickRadius = joystick.radius * 0.5;
+            joystick.stickX = joystick.x;
+            joystick.stickY = joystick.y;
+            joystick.maxDisplacement = joystick.radius - joystick.stickRadius;
+
+            // Buttons (bottom-right)
+            const buttonHeight = Math.min(canvas.width, canvas.height) * 0.08;
+            const buttonWidth = buttonHeight * 1.8;
+            const buttonMargin = buttonHeight * 0.3;
+
+            mobileButtons.sprint.width = buttonWidth;
+            mobileButtons.sprint.height = buttonHeight;
+            mobileButtons.sprint.x = canvas.width - buttonWidth - buttonMargin * 2;
+            mobileButtons.sprint.y = canvas.height - buttonHeight - buttonMargin;
+            
+            mobileButtons.activate.width = buttonWidth;
+            mobileButtons.activate.height = buttonHeight;
+            mobileButtons.activate.x = canvas.width - buttonWidth - buttonMargin * 2;
+            mobileButtons.activate.y = mobileButtons.sprint.y - buttonHeight - buttonMargin;
+
+            mobileButtons.cycle.width = buttonWidth;
+            mobileButtons.cycle.height = buttonHeight;
+            mobileButtons.cycle.x = canvas.width - buttonWidth - buttonMargin * 2;
+            mobileButtons.cycle.y = mobileButtons.activate.y - buttonHeight - buttonMargin;
+        }
+
+        function drawMobileControls() {
+            if (!isTouchDevice || !joystick.visible) return;
+
+            // Draw Joystick Base
+            drawCircle(joystick.x, joystick.y, joystick.radius, 'rgba(80, 80, 80, 0.4)');
+            // Draw Joystick Stick
+            drawCircle(joystick.stickX, joystick.stickY, joystick.stickRadius, joystick.active ? 'rgba(180, 180, 180, 0.8)' : 'rgba(120, 120, 120, 0.6)');
+
+            // Draw Buttons
+            Object.values(mobileButtons).forEach(button => {
+                if (button.visible) {
+                    drawRect(button.x, button.y, button.width, button.height, button.pressed ? 'rgba(100, 100, 100, 0.8)' : 'rgba(60, 60, 60, 0.6)');
+                    drawText(button.text, button.x + button.width / 2, button.y + button.height / 2 + 5, '#fff', Math.min(12, button.height * 0.3), 'center');
+                }
+            });
+        }
+        
+        function isTouchInCircle(touchX, touchY, circleX, circleY, circleRadius) {
+            const dx = touchX - circleX;
+            const dy = touchY - circleY;
+            return (dx * dx + dy * dy) < (circleRadius * circleRadius);
+        }
+
+        function isTouchInRect(touchX, touchY, rect) {
+            return touchX >= rect.x && touchX <= rect.x + rect.width &&
+                   touchY >= rect.y && touchY <= rect.y + rect.height;
+        }
 
         canvas.addEventListener('touchstart', function(e) {
-            e.preventDefault(); // Crucial for preventing unwanted browser behavior on mobile
-            const touch = e.touches[0];
-            
-            if (gameStates.currentState !== gameStates.GAME) {
-                const canvasRect = canvas.getBoundingClientRect();
-                // Convert touch coordinates to canvas relative coordinates
-                const touchX = touch.clientX - canvasRect.left;
-                const touchY = touch.clientY - canvasRect.top;
+            if (!isTouchDevice) return;
+            e.preventDefault(); 
+            const rect = canvas.getBoundingClientRect();
 
+            if (gameStates.currentState !== gameStates.GAME) {
+                const touch = e.changedTouches[0]; // Only need one touch for menu navigation
+                const touchX = touch.clientX - rect.left;
+                const touchY = touch.clientY - rect.top;
                 if (gameStates.currentState === gameStates.MENU || gameStates.currentState === gameStates.PAUSED) {
                     let menuSystem = (gameStates.currentState === gameStates.MENU) ? gameStates.startScreen : gameStates.pauseMenu;
-                    const optionHeight = Math.min(50, canvas.height / 10); // Use responsive height from draw
+                    const optionHeight = Math.min(50, canvas.height / 10); 
                     const firstOptionYBase = (gameStates.currentState === gameStates.MENU) ? canvas.height / 2 + Math.min(30, canvas.height / 15) : canvas.height / 2;
-                    
                     for(let i=0; i < menuSystem.options.length; i++) {
                         const optionCenterY = firstOptionYBase + i * optionHeight;
                         const optionTopY = optionCenterY - optionHeight / 2;
                         const optionBottomY = optionCenterY + optionHeight / 2;
-                        // Check if touch is within the vertical bounds of an option (full width tap)
                         if (touchY > optionTopY && touchY < optionBottomY) {
                             menuSystem.selectedOption = i;
-                            menuSystem.handleInput('enter'); // Simulate enter press
+                            menuSystem.handleInput('enter'); 
                             return;
                         }
                     }
                 } else if (gameStates.currentState === gameStates.INSTRUCTIONS || gameStates.currentState === gameStates.GAME_OVER || gameStates.currentState === gameStates.VICTORY) {
-                    // Simple tap anywhere to proceed on these screens
                     gameStates.handleKeyPress('enter');
                 }
                 return;
             }
             // In-game touch controls
-            isDragging = true;
-            touchStartX = touch.clientX; touchStartY = touch.clientY;
-            
-            const now = Date.now();
-            // Double tap in the center-ish area for ability activation
-            const rect = canvas.getBoundingClientRect();
-            const tapX = touch.clientX - rect.left;
-            const tapY = touch.clientY - rect.top;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                const touchX = touch.clientX - rect.left;
+                const touchY = touch.clientY - rect.top;
 
-            if (tapX > canvas.width * 0.3 && tapX < canvas.width * 0.7 &&
-                tapY > canvas.height * 0.3 && tapY < canvas.height * 0.7) { // Central area for double tap
-                if (now - lastTapTime < doubleTapThreshold) { 
-                    specialAbilities.activateAbility(); 
-                    lastTapTime = 0; // Reset last tap time to prevent triple taps activating again
-                } else {
-                    lastTapTime = now;
+                // Joystick activation
+                if (!joystick.active && joystick.visible && isTouchInCircle(touchX, touchY, joystick.x, joystick.y, joystick.radius * 1.2)) { // Slightly larger activation area
+                    joystick.active = true;
+                    joystick.touchId = touch.identifier;
+                    // Update stick position immediately
+                    const dxJoy = touchX - joystick.x;
+                    const dyJoy = touchY - joystick.y;
+                    const dist = Math.sqrt(dxJoy * dxJoy + dyJoy * dyJoy);
+                    if (dist > joystick.maxDisplacement) {
+                        joystick.stickX = joystick.x + (dxJoy / dist) * joystick.maxDisplacement;
+                        joystick.stickY = joystick.y + (dyJoy / dist) * joystick.maxDisplacement;
+                    } else {
+                        joystick.stickX = touchX;
+                        joystick.stickY = touchY;
+                    }
+                    player.dx = (joystick.stickX - joystick.x) / joystick.maxDisplacement;
+                    player.dy = (joystick.stickY - joystick.y) / joystick.maxDisplacement;
+                    continue; 
                 }
-            } else { // If tap is outside central area, reset double tap timer
-                 lastTapTime = now; // Still record this tap for next potential double tap
+                // Sprint Button
+                if (mobileButtons.sprint.visible && isTouchInRect(touchX, touchY, mobileButtons.sprint)) {
+                    keys.shift = true; player.isSprinting = true;
+                    mobileButtons.sprint.pressed = true;
+                    mobileButtons.sprint.touchId = touch.identifier;
+                    continue;
+                }
+                // Activate Ability Button
+                if (mobileButtons.activate.visible && isTouchInRect(touchX, touchY, mobileButtons.activate)) {
+                    specialAbilities.activateAbility();
+                    mobileButtons.activate.pressed = true;
+                    setTimeout(() => { mobileButtons.activate.pressed = false; }, 150);
+                    continue;
+                }
+                // Cycle Ability Button
+                if (mobileButtons.cycle.visible && isTouchInRect(touchX, touchY, mobileButtons.cycle)) {
+                    specialAbilities.cycleAbility();
+                    mobileButtons.cycle.pressed = true;
+                    setTimeout(() => { mobileButtons.cycle.pressed = false; }, 150);
+                    continue;
+                }
             }
-
-
-            // Sprint: Bottom-right corner (approx last 30% width and height)
-            if (touch.clientX > rect.left + canvas.width * 0.7 && touch.clientY > rect.top + canvas.height * 0.7) { 
-                keys.shift = true; player.isSprinting = true; 
-            }
-            // Cycle Ability: Bottom-left corner
-            if (touch.clientX < rect.left + canvas.width * 0.3 && touch.clientY > rect.top + canvas.height * 0.7) {
-                specialAbilities.cycleAbility();
-            }
-            updatePlayerVelocity(); // Update velocity based on initial touch if needed (though drag is primary)
         }, { passive: false });
 
         canvas.addEventListener('touchmove', function(e) {
-            if (gameStates.currentState !== gameStates.GAME || gamePaused || !isDragging) return; 
+            if (!isTouchDevice || gameStates.currentState !== gameStates.GAME || gamePaused) return; 
             e.preventDefault();
-            const touch = e.touches[0]; 
-            const diffX = touch.clientX - touchStartX; 
-            const diffY = touch.clientY - touchStartY;
+            const rect = canvas.getBoundingClientRect();
 
-            // Determine primary direction of drag
-            if (Math.abs(diffX) > touchThreshold || Math.abs(diffY) > touchThreshold) {
-                player.dx = 0; player.dy = 0; // Reset before setting
-                if (Math.abs(diffX) > Math.abs(diffY)) { // Horizontal movement is dominant
-                    player.dx = (diffX > 0) ? 1 : -1;
-                } else { // Vertical movement is dominant
-                    player.dy = (diffY > 0) ? 1 : -1;
-                }
-                // If significant movement in both, allow diagonal (already handled by updatePlayerVelocity normalization)
-                 if (Math.abs(diffX) > touchThreshold && Math.abs(diffY) > touchThreshold) {
-                    player.dx = (diffX > 0) ? 1 : -1;
-                    player.dy = (diffY > 0) ? 1 : -1;
-                }
-            } else { // If not enough movement, no direction change
-                player.dx = 0; player.dy = 0;
-            }
-            updatePlayerVelocity();
-        }, { passive: false });
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                if (joystick.active && touch.identifier === joystick.touchId) {
+                    const touchX = touch.clientX - rect.left;
+                    const touchY = touch.clientY - rect.top;
+                    let dxJoy = touchX - joystick.x;
+                    let dyJoy = touchY - joystick.y;
+                    const dist = Math.sqrt(dxJoy * dxJoy + dyJoy * dyJoy);
 
-        canvas.addEventListener('touchend', function(e) {
-            if (gameStates.currentState !== gameStates.GAME) return;
-            isDragging = false;
-            keys.up = false; keys.down = false; keys.left = false; keys.right = false; // Stop movement
-            player.dx = 0; player.dy = 0; // Explicitly stop player velocity components
-
-            // Check if any remaining touches are still in the sprint zone
-            let stillSprinting = false;
-            if (e.touches.length > 0) {
-                const rect = canvas.getBoundingClientRect();
-                for (let i = 0; i < e.touches.length; i++) {
-                    const touch = e.touches[i];
-                     if (touch.clientX > rect.left + canvas.width * 0.7 && touch.clientY > rect.top + canvas.height * 0.7) {
-                        stillSprinting = true;
-                        break;
+                    if (dist > joystick.maxDisplacement) {
+                        dxJoy = (dxJoy / dist) * joystick.maxDisplacement;
+                        dyJoy = (dyJoy / dist) * joystick.maxDisplacement;
+                    }
+                    joystick.stickX = joystick.x + dxJoy;
+                    joystick.stickY = joystick.y + dyJoy;
+                    player.dx = dxJoy / joystick.maxDisplacement;
+                    player.dy = dyJoy / joystick.maxDisplacement;
+                    // Normalize if needed (already done in updatePlayerVelocity if that was used, but direct set is fine)
+                     if (player.dx !== 0 && player.dy !== 0) {
+                        const length = Math.sqrt(player.dx * player.dx + player.dy * player.dy);
+                        if (length > 1) { // Ensure it's not over 1 after division if maxDisplacement is small
+                             player.dx /= length; player.dy /= length;
+                        }
                     }
                 }
             }
-            if (!stillSprinting) {
-                keys.shift = false; player.isSprinting = false;
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', function(e) {
+            if (!isTouchDevice || gameStates.currentState !== gameStates.GAME) return;
+            e.preventDefault();
+             for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                // Joystick deactivation
+                if (joystick.active && touch.identifier === joystick.touchId) {
+                    joystick.active = false;
+                    joystick.touchId = null;
+                    joystick.stickX = joystick.x;
+                    joystick.stickY = joystick.y;
+                    player.dx = 0;
+                    player.dy = 0;
+                }
+                // Sprint button release
+                if (mobileButtons.sprint.touchId === touch.identifier) {
+                    keys.shift = false; player.isSprinting = false;
+                    mobileButtons.sprint.pressed = false;
+                    mobileButtons.sprint.touchId = null;
+                }
             }
-            updatePlayerVelocity();
         });
+
 
         // --- Game Initialization ---
         function initGame() {
             const resizeCanvas = () => {
-                // Make canvas fill the screen
                 canvas.width = window.innerWidth;
                 canvas.height = window.innerHeight;
-                
-                // Update camera dimensions
                 camera.width = canvas.width;
                 camera.height = canvas.height;
-                
-                // Redraw non-game states immediately on resize
+                if (isTouchDevice) setupMobileControls(); // Reposition mobile controls on resize
                 if(gameStates.currentState !== gameStates.GAME) gameStates.draw();
-                // For game state, the gameLoop will handle redraw
             };
             window.addEventListener('resize', resizeCanvas); 
-            resizeCanvas(); // Initial resize
+            resizeCanvas(); 
 
-            // Set initial player position relative to Kremer's table (if tables are initialized)
             if (tables.length > KREMER_TABLE_INDEX && tables[KREMER_TABLE_INDEX]) {
                  player.x = tables[KREMER_TABLE_INDEX].x + tables[KREMER_TABLE_INDEX].width / 2;
                  player.y = tables[KREMER_TABLE_INDEX].y + tables[KREMER_TABLE_INDEX].height + TILE_SIZE * 2;
-            } else { // Fallback if tables aren't ready (should not happen with current flow)
+            } else { 
                 player.x = WORLD_WIDTH / 2;
                 player.y = WORLD_HEIGHT / 2;
             }
-            player.targetX = player.x; player.targetY = player.y; // Sync target
+            player.targetX = player.x; player.targetY = player.y; 
 
-            updateCamera(); // Initial camera setup
-            gameStates.currentState = gameStates.MENU; // Start at the menu
-            gameLoop(); // Start the game loop
+            updateCamera(); 
+            gameStates.currentState = gameStates.MENU; 
+            gameLoop(); 
         }
         window.addEventListener('load', initGame);
     </script>
