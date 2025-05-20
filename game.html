@@ -168,17 +168,16 @@
                 name: "Dining Table", 
                 x: tableX, y: tableY, width: tableWidth, height: tableHeight,
                 color: tableColors[getRandomInt(0, tableColors.length -1)],
-                isBench: false // Main table part is not a bench for collision skipping
+                isBench: false 
             };
             tables.push(mainTable);
 
-            // Add benches as separate collision objects, MARKED as benches
             if (tableWidth > tableHeight) { 
                 tables.push({
-                    id: `dining_table_${i}_bench_top`, name: "Bench", // Name for drawing
+                    id: `dining_table_${i}_bench_top`, name: "Bench", 
                     x: tableX, y: tableY - benchThickness - benchOffset,
                     width: tableWidth, height: benchThickness,
-                    color: benchColor, isBench: true // This will be skipped in collision checks
+                    color: benchColor, isBench: true 
                 });
                 tables.push({
                     id: `dining_table_${i}_bench_bottom`, name: "Bench",
@@ -204,15 +203,15 @@
 
 
         const KREMER_TABLE_INDEX = 0; 
-        const ZIV_TABLE_INDEX = 1;    
+        const ZIV_TABLE_INDEX = 1;   
 
         const kremerStudentNames = [
             "Itamar", "Noam", "Moshe", "Yossi", "Shachar", "Oryan", "Naor", "Adiel", "Elisha", "Benjamin",
-            "Avi", "Ron", "Gal", "Liran", "Yaniv" // Added 5 more
+            "Avi", "Ron", "Gal", "Liran", "Yaniv" // Total 15 names
         ];
         const zivStudentNames = [
-            "Garashi", "Shua", "Rafi", "Oral", "Yair", "Ehuvia", 
-            "Eliel", "Elad", "Dvir", "Arbel", "Hagi", "Nachshon"
+            "Gershy", "Shua", "Rafi", "Orel", "Yair", "Ehuvia", 
+            "Eliel", "Elad", "Dvir", "Arbel", "Hagi", "Nachshon" // Total 12 names
         ];
 
 
@@ -284,7 +283,7 @@
                     const t = progress / 0.1;
                     skyColor = `rgb(${Math.floor(80 + t * 50)}, ${Math.floor(100 + t * 80)}, ${Math.floor(150 + t * 85)})`;
                 } else if (progress < 0.8) { 
-                     skyColor = '#87CEEB'; 
+                    skyColor = '#87CEEB'; 
                 } else { 
                     const t = (progress - 0.8) / 0.2;
                     skyColor = `rgb(${Math.floor(135 - t * 30)}, ${Math.floor(206 - t * 20)}, ${Math.floor(235 - t * 10)})`;
@@ -294,13 +293,14 @@
             getLightLevel: function() {
                 const progress = this.timeOfDay; 
                 if (progress < 0.1) return 0.8 + progress * 2; 
-                else if (progress < 0.8) return 1.0;         
-                else return 1.0 - (progress - 0.8) * 1;      
+                else if (progress < 0.8) return 1.0;        
+                else return 1.0 - (progress - 0.8) * 1;     
             }
         };
 
         const specialAbilities = {
             active: false, cooldown: 0, maxCooldown: 600, 
+            timeWarpEffectActive: false, // Flag for visual effect
             available: [
                 {
                     name: "Time Warp", description: "Slow down time for everyone except you.",
@@ -312,7 +312,7 @@
                             s.speed *= slowFactor; s.runSpeed *= slowFactor; s.returnSpeed *= slowFactor;
                         });
                         showGameMessage("Time Warp active!");
-                        ctx.filter = "sepia(0.5) hue-rotate(240deg)"; 
+                        specialAbilities.timeWarpEffectActive = true; 
                         setTimeout(() => { 
                             students.forEach((s, i) => {
                                 if (originalSpeeds[i]) { 
@@ -321,8 +321,8 @@
                                     s.returnSpeed = originalSpeeds[i].returnSpeed;
                                 }
                             });
-                            ctx.filter = "none"; 
                             showGameMessage("Time Warp ended");
+                            specialAbilities.timeWarpEffectActive = false;
                             specialAbilities.active = false;
                             specialAbilities.cooldown = specialAbilities.maxCooldown;
                         }, 2500); 
@@ -465,12 +465,12 @@
                 },
                 handleInput: function(key) {
                     if (['escape', 'enter', ' '].includes(key.toLowerCase())) {
-                         gameStates.currentState = gameStates.MENU;
+                        gameStates.currentState = gameStates.MENU;
                     }
                 }
             },
             pauseMenu: { 
-                 options: [
+                options: [
                     { text: "Resume", action: () => { gameStates.currentState = gameStates.GAME; gamePaused = false; } },
                     { text: "Restart Day", action: () => gameStates.restartCurrentDay() }, 
                     { text: "Main Menu", action: () => { gameStates.currentState = gameStates.MENU; gamePaused = false; gameTime = 0; currentDay = 1;} }
@@ -525,7 +525,7 @@
                     ctx.fillText("Tap or Press ENTER for Main Menu", canvas.width / 2, canvas.height / 2 + Math.min(100, canvas.height/6));
                 },
                 handleInput: function(key) {
-                     switch(key.toLowerCase()) {
+                    switch(key.toLowerCase()) {
                         case 'enter': case ' ': gameStates.currentState = gameStates.MENU; gameTime = 0; currentDay = 1; break;
                         case 'escape': gameStates.currentState = gameStates.MENU; gameTime = 0; currentDay = 1; break;
                     }
@@ -651,7 +651,7 @@
                 }
             },
             draw: function() { 
-                 switch(this.currentState) {
+                switch(this.currentState) {
                     case this.MENU: this.startScreen.draw(); break;
                     case this.INSTRUCTIONS: this.instructionsScreen.draw(); break;
                     case this.PAUSED: this.pauseMenu.draw(); break; 
@@ -694,14 +694,18 @@
             for (let i = 0; i < Math.floor(table.height / spacing) && seats.length < numSeats; i++) {
                 seats.push({ x: table.x - TILE_SIZE * 1.5, y: table.y + i * spacing + TILE_SIZE * 0.25 });
             }
-            while (seats.length < numSeats) {
-                seats.push({ x: table.x + getRandomInt(-5, 5) * TILE_SIZE, y: table.y + getRandomInt(-5, 5) * TILE_SIZE });
+            while (seats.length < numSeats) { // Fallback for tables too small for regular spacing
+                 const randomSide = getRandomInt(0,3);
+                 if (randomSide === 0) seats.push({ x: table.x + getRandomInt(0, Math.floor(table.width/TILE_SIZE)-1) * TILE_SIZE, y: table.y - TILE_SIZE * 1.5 });
+                 else if (randomSide === 1) seats.push({ x: table.x + table.width + TILE_SIZE, y: table.y + getRandomInt(0, Math.floor(table.height/TILE_SIZE)-1) * TILE_SIZE });
+                 else if (randomSide === 2) seats.push({ x: table.x + getRandomInt(0, Math.floor(table.width/TILE_SIZE)-1) * TILE_SIZE, y: table.y + table.height + TILE_SIZE * 0.5 });
+                 else seats.push({ x: table.x - TILE_SIZE * 1.5, y: table.y + getRandomInt(0, Math.floor(table.height/TILE_SIZE)-1) * TILE_SIZE });
             }
             return seats.slice(0, numSeats);
         }
 
         const kremerSeatPositions = generateSeatPositions(KREMER_TABLE_INDEX, 15); 
-        const zivSeatPositions = generateSeatPositions(ZIV_TABLE_INDEX, 6); 
+        const zivSeatPositions = generateSeatPositions(ZIV_TABLE_INDEX, Math.min(6, zivStudentNames.length)); // Max 6 visual seats for Ziv
 
 
         function findKremerStudentValidPositions(count) {
@@ -745,7 +749,8 @@
                     isCaught: false, isAtSeat: false,
                     isWandering: true, isAfraidOfTeacher: false,
                     wanderTargetX: validPositions[i].x, wanderTargetY: validPositions[i].y,
-                    seatX: kremerSeatPositions[i].x, seatY: kremerSeatPositions[i].y,
+                    seatX: kremerSeatPositions[i % kremerSeatPositions.length].x, 
+                    seatY: kremerSeatPositions[i % kremerSeatPositions.length].y,
                     speed: 1.5 + Math.random() * 0.5, runSpeed: 2.5 + Math.random() * 0.7, returnSpeed: 3,
                     wanderTimer: 0, wanderDelay: getRandomInt(60, 200), 
                     lastDirection: { x: 0, y: 0 },
@@ -763,15 +768,19 @@
             for (let i = 0; i < zivStudentNames.length; i++) {
                 let studentX, studentY, isWanderingZ; 
                 const studentSpeed = 0.7; 
+                let currentSeatX = null;
+                let currentSeatY = null;
 
-                if (i < 6) { 
+                if (i < zivSeatPositions.length) { 
                     isWanderingZ = false;
-                    studentX = zivSeatPositions[i % zivSeatPositions.length].x; 
-                    studentY = zivSeatPositions[i % zivSeatPositions.length].y;
+                    currentSeatX = zivSeatPositions[i].x; 
+                    currentSeatY = zivSeatPositions[i].y;
+                    studentX = currentSeatX;
+                    studentY = currentSeatY;
                 } else { 
                     isWanderingZ = true;
-                    studentX = zivTable.x + zivTable.width / 2 + getRandomInt(-TILE_SIZE * 3, TILE_SIZE * 3);
-                    studentY = zivTable.y + zivTable.height / 2 + getRandomInt(-TILE_SIZE * 3, TILE_SIZE * 3);
+                    studentX = zivTable.x + zivTable.width / 2 + getRandomInt(-TILE_SIZE * 4, TILE_SIZE * 4); // Wider wander start for Ziv
+                    studentY = zivTable.y + zivTable.height / 2 + getRandomInt(-TILE_SIZE * 4, TILE_SIZE * 4);
                 }
                 
                 studentX = Math.max(TILE_SIZE, Math.min(studentX, WORLD_WIDTH - TILE_SIZE*2));
@@ -787,6 +796,8 @@
                     speed: studentSpeed,
                     wanderTimer: 0, wanderDelay: getRandomInt(120, 300), 
                     lastDirection: { x: 0, y: 0 },
+                    seatX: currentSeatX, 
+                    seatY: currentSeatY,
                 });
             }
         }
@@ -799,7 +810,7 @@
 
         function checkCollision(rect1, rect2) {
             if (!rect1 || !rect2) return false; 
-            if (rect2.isBench) return false; // Benches are not collidable
+            if (rect2.isBench) return false; 
             return rect1.x < rect2.x + rect2.width &&
                    rect1.x + rect1.width > rect2.x &&
                    rect1.y < rect2.y + rect2.height &&
@@ -847,7 +858,7 @@
                 const t = i / steps;
                 const checkX = startX + (endX - startX) * t; const checkY = startY + (endY - startY) * t;
                 for (const table of tables) { 
-                    if (table.isBench) continue; // Benches don't block paths
+                    if (table.isBench) continue; 
                     if (checkX >= table.x && checkX <= table.x + table.width && checkY >= table.y && checkY <= table.y + table.height) return true;
                 }
             }
@@ -890,7 +901,7 @@
                     x = getRandomInt(TILE_SIZE * 2, WORLD_WIDTH - TILE_SIZE * 3); y = getRandomInt(TILE_SIZE * 2, WORLD_HEIGHT - TILE_SIZE * 3);
                     const tempPowerUp = {x, y, width: TILE_SIZE, height: TILE_SIZE};
                     for (const table of tables) {
-                        if (table.isBench) continue; // Power-ups should not collide with non-collidable benches for spawning
+                        if (table.isBench) continue; 
                         if (checkCollision(tempPowerUp, {x: table.x - TILE_SIZE, y: table.y - TILE_SIZE, width: table.width + TILE_SIZE*2, height: table.height + TILE_SIZE*2})) { 
                             validPosition = false; break; 
                         }
@@ -915,7 +926,7 @@
             if (gamePaused || gameStates.isTransitioningDay()) return;
             for (let i = powerUps.length - 1; i >= 0; i--) {
                 const powerUp = powerUps[i]; powerUp.pulseTimer += 0.05; 
-                if (checkCollision(player, powerUp)) { // Player collision with power-up (benches won't block this)
+                if (checkCollision(player, powerUp)) { 
                     powerUp.type.effect();
                     powerUps.splice(i, 1); 
                 }
@@ -971,7 +982,7 @@
             player.y = Math.max(0, Math.min(player.y, WORLD_HEIGHT - player.height));
 
             for (const table of tables) { 
-                if (table.isBench) continue; // Skip collision with benches for player
+                if (table.isBench) continue; 
                 if (checkCollision(player, table)) {
                     const overlapLeft = (player.x + player.width) - table.x;
                     const overlapRight = (table.x + table.width) - player.x;
@@ -1013,7 +1024,7 @@
                         student.isCaught = false;
                         student.isAtSeat = false;
                         student.isWandering = true;
-                        player.captureCount = Math.max(0, player.captureCount -1); // Decrement if they leave
+                        player.captureCount = Math.max(0, player.captureCount -1); 
                         student.boredom = 0;
                         student.happiness = Math.max(0, student.happiness - 30);
                         student.madness = Math.min(100, student.madness + 15);
@@ -1040,9 +1051,9 @@
                             if (table.isBench) continue;
                             if (checkCollision({ ...student, x: nextX, y: nextY }, table)) {
                                 if (Math.abs(diffX) > Math.abs(diffY)) { 
-                                     if (!isPathBlocked(student.x, student.y, student.x, student.y + Math.sign(diffY) * student.returnSpeed)) { moveX = 0; moveY = Math.sign(diffY) * student.returnSpeed * 0.8; }
+                                    if (!isPathBlocked(student.x, student.y, student.x, student.y + Math.sign(diffY) * student.returnSpeed)) { moveX = 0; moveY = Math.sign(diffY) * student.returnSpeed * 0.8; }
                                 } else { 
-                                     if (!isPathBlocked(student.x, student.y, student.x + Math.sign(diffX) * student.returnSpeed, student.y)) { moveX = Math.sign(diffX) * student.returnSpeed * 0.8; moveY = 0; }
+                                    if (!isPathBlocked(student.x, student.y, student.x + Math.sign(diffX) * student.returnSpeed, student.y)) { moveX = Math.sign(diffX) * student.returnSpeed * 0.8; moveY = 0; }
                                 }
                                 break;
                             }
@@ -1158,7 +1169,7 @@
                         student.isAtSeat = false; 
                         student.isWandering = false; 
                         student.isAfraidOfTeacher = false; 
-                        student.currentMessage = "";      
+                        student.currentMessage = "";   
                         student.messageTimer = 0;
                         player.captureCount++; 
                         
@@ -1175,15 +1186,15 @@
         function updateZivStudents() {
             if (gamePaused || gameStates.isTransitioningDay()) return;
             const zivTable = tables[ZIV_TABLE_INDEX];
-            const wanderBounds = {
-                minX: zivTable.x - TILE_SIZE * 5,
-                maxX: zivTable.x + zivTable.width + TILE_SIZE * 5,
-                minY: zivTable.y - TILE_SIZE * 5,
-                maxY: zivTable.y + zivTable.height + TILE_SIZE * 5,
+            const wanderBounds = { // Define a slightly larger area around Ziv's table for wandering
+                minX: zivTable.x - TILE_SIZE * 6,
+                maxX: zivTable.x + zivTable.width + TILE_SIZE * 6,
+                minY: zivTable.y - TILE_SIZE * 6,
+                maxY: zivTable.y + zivTable.height + TILE_SIZE * 6,
             };
 
             zivStudents.forEach(student => {
-                if (student.isWandering) {
+                if (student.isWandering) { 
                     student.wanderTimer++;
                     if (student.wanderTimer >= student.wanderDelay || distance(student, {x: student.wanderTargetX, y: student.wanderTargetY, width:1, height:1}) < student.speed * 2) {
                         student.wanderTimer = 0; student.wanderDelay = getRandomInt(150, 400); 
@@ -1194,6 +1205,7 @@
 
                         student.wanderTargetX = Math.max(wanderBounds.minX, Math.min(student.wanderTargetX, wanderBounds.maxX));
                         student.wanderTargetY = Math.max(wanderBounds.minY, Math.min(student.wanderTargetY, wanderBounds.maxY));
+                        
                         student.wanderTargetX = Math.max(TILE_SIZE, Math.min(student.wanderTargetX, WORLD_WIDTH - TILE_SIZE*2));
                         student.wanderTargetY = Math.max(TILE_SIZE, Math.min(student.wanderTargetY, WORLD_HEIGHT - TILE_SIZE*2));
                     }
@@ -1214,7 +1226,7 @@
                         let nextX = student.x + moveX; let nextY = student.y + moveY; let collision = false;
                         const futureStudent = { ...student, x: nextX, y: nextY };
                         for (const table of tables) {
-                            if (table.isBench) continue; // Ziv students ignore benches for collision
+                            if (table.isBench) continue; 
                             if (table.id !== "ziv_table" && checkCollision(futureStudent, table)) { 
                                 collision = true; break; 
                             }
@@ -1228,6 +1240,11 @@
                     }
                     student.x = Math.max(0, Math.min(student.x, WORLD_WIDTH - student.width));
                     student.y = Math.max(0, Math.min(student.y, WORLD_HEIGHT - student.height));
+                } else { 
+                    if (student.seatX !== null && student.seatY !== null) {
+                       student.x = student.seatX;
+                       student.y = student.seatY;
+                    }
                 }
             });
         }
@@ -1267,7 +1284,16 @@
         }
 
         function drawGrid() {
-            ctx.strokeStyle = 'rgba(58, 58, 58, 0.5)'; ctx.lineWidth = 0.5; const gridSize = TILE_SIZE * 5;
+            let gridStrokeStyle = 'rgba(58, 58, 58, 0.5)';
+            let gridLineWidth = 0.5;
+
+            if (specialAbilities.timeWarpEffectActive) { // Grid effect for Time Warp
+                // This is handled by the overlay now, but you could add grid changes here too
+            }
+            
+            ctx.strokeStyle = gridStrokeStyle; 
+            ctx.lineWidth = gridLineWidth; 
+            const gridSize = TILE_SIZE * 5;
             const startX = Math.floor(camera.x / gridSize) * gridSize; 
             const endX = Math.ceil((camera.x + camera.width / camera.zoom) / gridSize) * gridSize;
             const startY = Math.floor(camera.y / gridSize) * gridSize; 
@@ -1291,44 +1317,36 @@
             drawGrid(); 
 
             tables.forEach(table => {
-                // Draw all table objects, including those marked as benches
                 drawRect(table.x, table.y, table.width, table.height, table.color, lightLevel);
                 
                 if (table.name === "Dining Table" && !table.isBench) { 
                     const tabletopPadding = TILE_SIZE * 0.2;
                     drawRect(table.x + tabletopPadding, table.y + tabletopPadding, 
-                                 table.width - 2 * tabletopPadding, table.height - 2 * tabletopPadding, 'rgba(0,0,0,0.15)', lightLevel);
-                } else if (table.id === "kremer_table" || table.id === "ziv_table") { // Only draw names for main class tables
-                     drawText(table.name, table.x + table.width / 2, table.y + table.height / 2 - 5, '#eee', 8, 'center', lightLevel);
+                             table.width - 2 * tabletopPadding, table.height - 2 * tabletopPadding, 'rgba(0,0,0,0.15)', lightLevel);
+                } else if (table.id === "kremer_table" || table.id === "ziv_table") { 
+                    drawText(table.name, table.x + table.width / 2, table.y + table.height / 2 - 5, '#eee', 8, 'center', lightLevel);
                 }
             });
-
 
             drawRect(ziv.x, ziv.y, ziv.width, ziv.height, ziv.color, lightLevel);
             drawText(ziv.name, ziv.x + ziv.width / 2, ziv.y - 6, '#fff', 8, 'center', lightLevel);
 
+            // Kremer Seats & Seated Students
             kremerSeatPositions.forEach((seat) => {
-                const studentAtSeat = students.find(s => s.isCaught && s.isAtSeat && Math.abs(s.x - seat.x) < TILE_SIZE/2 && Math.abs(s.y - seat.y) < TILE_SIZE/2);
+                const studentAtSeat = students.find(s => s.isCaught && s.isAtSeat && s.seatX === seat.x && s.seatY === seat.y);
                 if (studentAtSeat) {
                     drawRect(seat.x, seat.y, TILE_SIZE, TILE_SIZE, studentAtSeat.color, lightLevel);
                     const moodEmoji = getMoodEmoji(studentAtSeat);
-                    drawText(`${moodEmoji} ${studentAtSeat.name.substring(0,3)}(K)`, seat.x + TILE_SIZE / 2, seat.y - 8, '#fff', 9, 'center', lightLevel);
-                } else drawRect(seat.x, seat.y, TILE_SIZE, TILE_SIZE, '#555', lightLevel); 
+                    drawText(`${moodEmoji} ${studentAtSeat.name} (K)`, seat.x + TILE_SIZE / 2, seat.y - 9, '#fff', 9, 'center', lightLevel);
+                } else {
+                    drawRect(seat.x, seat.y, TILE_SIZE, TILE_SIZE, '#555', lightLevel); 
+                }
             });
             
-            // Draw Ziv's seats (visual only, no interaction logic needed for them beyond student placement)
+            // Ziv Seats (draw all visual seat squares first)
             zivSeatPositions.forEach(seat => {
-                 const studentAtSeat = zivStudents.find(s => !s.isWandering && Math.abs(s.x - seat.x) < TILE_SIZE/2 && Math.abs(s.y - seat.y) < TILE_SIZE/2);
-                 if(studentAtSeat){
-                    // Student is already drawn, so just draw the seat if it's "occupied" by a non-wandering Ziv student
-                    // Or, if you want to draw Ziv students explicitly on seats:
-                    // drawRect(seat.x, seat.y, TILE_SIZE, TILE_SIZE, ZIV_STUDENT_COLOR, lightLevel); // Example if student is drawn here
-                    // drawText(`${studentAtSeat.name.substring(0,3)}(Z)`, seat.x + TILE_SIZE / 2, seat.y - 8, '#fff', 9, 'center', lightLevel);
-                 } else {
-                    drawRect(seat.x, seat.y, TILE_SIZE, TILE_SIZE, '#4a4a4a', lightLevel); // Darker empty seat for Ziv
-                 }
+                drawRect(seat.x, seat.y, TILE_SIZE, TILE_SIZE, '#4a4a4a', lightLevel); 
             });
-
 
             powerUps.forEach(powerUp => {
                 const pulseScale = 0.8 + Math.sin(powerUp.pulseTimer) * 0.2; const size = TILE_SIZE * pulseScale;
@@ -1338,13 +1356,15 @@
                 drawText(powerUp.type.name.charAt(0), pX, pY + 4, '#fff', 12, 'center', lightLevel); 
             });
 
+            // Wandering or returning Kremer Students
             students.forEach(s => {
                 if (!s.isAtSeat) { 
                     drawRect(s.x, s.y, s.width, s.height, s.color, lightLevel);
                     const moodEmoji = getMoodEmoji(s);
-                    drawText(`${moodEmoji} ${s.name.substring(0,3)}(K)`, s.x + s.width / 2, s.y - 8, '#fff', 9, 'center', lightLevel); 
-                    if (s.currentMessage && s.messageTimer > 0) drawText(s.currentMessage, s.x + s.width / 2, s.y - 20, '#ffcc00', 12, 'center', lightLevel); 
-                    else if (s.isAfraidOfTeacher) drawText("!", s.x + s.width / 2, s.y - 20, '#ff3333', 12, 'center', lightLevel); 
+                    drawText(`${moodEmoji} ${s.name} (K)`, s.x + s.width / 2, s.y - 9, '#fff', 9, 'center', lightLevel); 
+                    const messageYOffset = s.y - 9 - 10; // Place message above name
+                    if (s.currentMessage && s.messageTimer > 0) drawText(s.currentMessage, s.x + s.width / 2, messageYOffset, '#ffcc00', 10, 'center', lightLevel); 
+                    else if (s.isAfraidOfTeacher) drawText("!", s.x + s.width / 2, messageYOffset, '#ff3333', 10, 'center', lightLevel); 
 
                     if (player.radarActive && !s.isCaught) {
                         const dist = distance(player, s); const maxRadarDist = TILE_SIZE * 40;
@@ -1361,9 +1381,10 @@
                 }
             });
 
+            // All Ziv Students (drawn over their seats if applicable, or at wandering pos)
             zivStudents.forEach(s => {
-                drawRect(s.x, s.y, s.width, s.height, s.color, lightLevel);
-                drawText(`${s.name.substring(0,3)}(Z)`, s.x + s.width / 2, s.y - 8, '#fff', 9, 'center', lightLevel);
+                drawRect(s.x, s.y, s.width, s.height, s.color, lightLevel); 
+                drawText(`${s.name} (Z)`, s.x + s.width / 2, s.y - 9, '#fff', 9, 'center', lightLevel);
             });
 
 
@@ -1376,6 +1397,13 @@
                 ctx.strokeStyle = `rgba(255, 0, 204, ${0.3 + pulse * 0.2})`; ctx.lineWidth = 2 + pulse;
                 ctx.beginPath(); ctx.arc(player.x + player.width/2, player.y + player.height/2, player.attractionRadius * (0.9 + pulse * 0.05) , 0, Math.PI * 2); ctx.stroke();
                 ctx.globalAlpha = oldGlobalAlpha;
+            }
+
+            // Time Warp visual effect overlay
+            if (specialAbilities.timeWarpEffectActive) {
+                const overlayAlpha = 0.05 + Math.sin(Date.now() * 0.005) * 0.03; // Subtle pulse
+                ctx.fillStyle = `rgba(70, 70, 150, ${overlayAlpha * lightLevel})`; // Bluish tint, respects light level
+                ctx.fillRect(camera.x, camera.y, camera.width / camera.zoom, camera.height / camera.zoom);
             }
             
             ctx.restore(); 
@@ -1426,13 +1454,13 @@
 
         function draw() { 
             if (gameStates.currentState === gameStates.GAME || gameStates.isTransitioningDay()) {
-                 drawGame();
+                drawGame();
             } else if (gameStates.currentState === gameStates.PAUSED) {
-                 drawGame(); 
-                 gameStates.draw(); 
+                drawGame(); 
+                gameStates.draw(); 
             }
-             else { 
-                 gameStates.draw(); 
+            else { 
+                gameStates.draw(); 
             }
             if (fadeOverlayAlpha > 0) {
                 ctx.fillStyle = `rgba(0, 0, 0, ${fadeOverlayAlpha})`;
@@ -1480,7 +1508,7 @@
                     if (gameStates.currentState === gameStates.GAME && !gamePaused) { 
                         gamePaused = true; gameStates.currentState = gameStates.PAUSED; 
                     } else if (gameStates.currentState === gameStates.PAUSED) { 
-                         gameStates.pauseMenu.options[0].action(); 
+                        gameStates.pauseMenu.options[0].action(); 
                     }
                     break;
             }
@@ -1617,12 +1645,12 @@
         function onFullScreenChange() {
             isFullscreenActive = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
             screenEdgePadding = (isTouchDevice && !isFullscreenActive) ? Math.min(20, Math.min(window.innerWidth, window.innerHeight) * 0.03) : 0;
-            resizeCanvas(); 
+            resizeCanvasScoped(); // Use the scoped function name
         }
 
         document.addEventListener('fullscreenchange', onFullScreenChange);
         document.addEventListener('webkitfullscreenchange', onFullScreenChange); 
-        document.addEventListener('msfullscreenchange', onFullScreenChange);     
+        document.addEventListener('msfullscreenchange', onFullScreenChange);    
 
         canvas.addEventListener('touchstart', function(e) {
             if (!isTouchDevice) return;
@@ -1735,10 +1763,10 @@
                     player.dx = dxJoy / joystick.maxDisplacement;
                     player.dy = dyJoy / joystick.maxDisplacement;
                     
-                     if (player.dx !== 0 || player.dy !== 0) { 
+                    if (player.dx !== 0 || player.dy !== 0) { 
                         const length = Math.sqrt(player.dx * player.dx + player.dy * player.dy);
                         if (length > 1) { 
-                             player.dx /= length; player.dy /= length;
+                            player.dx /= length; player.dy /= length;
                         }
                     }
                 }
@@ -1776,20 +1804,25 @@
             return Math.abs(hash); 
         };
 
+        let resizeCanvasScoped; // Declare here to be accessible by onFullScreenChange
 
         // --- Game Initialization ---
         function initGame() {
-            const resizeCanvas = () => {
+            resizeCanvasScoped = () => { 
                 canvas.width = window.innerWidth;
                 canvas.height = window.innerHeight;
                 camera.width = canvas.width;
                 camera.height = canvas.height;
                 screenEdgePadding = (isTouchDevice && !isFullscreenActive) ? Math.min(20, Math.min(window.innerWidth, window.innerHeight) * 0.03) : 0;
                 if (isTouchDevice) setupMobileControls(); 
-                if(gameStates.currentState !== gameStates.GAME || gameStates.isTransitioningDay()) gameStates.draw(); 
+                if(gameStates.currentState !== gameStates.GAME || gameStates.isTransitioningDay()) {
+                    if (typeof gameStates.draw === 'function') gameStates.draw();
+                } else if (typeof draw === 'function') { // Ensure draw is callable if in game state
+                    draw();
+                }
             };
-            window.addEventListener('resize', resizeCanvas); 
-            resizeCanvas(); 
+            window.addEventListener('resize', resizeCanvasScoped); 
+            resizeCanvasScoped(); 
 
             if (tables.length > KREMER_TABLE_INDEX && tables[KREMER_TABLE_INDEX]) {
                  player.x = tables[KREMER_TABLE_INDEX].x + tables[KREMER_TABLE_INDEX].width / 2;
