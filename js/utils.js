@@ -21,14 +21,26 @@ function checkCollision(rect1, rect2) {
 
 function isPathBlocked(startX, startY, endX, endY) {
     const dist = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
-    const steps = Math.max(1, Math.ceil(dist / (TILE_SIZE / 2)));
+    // Increase the number of steps for more precise checking
+    const steps = Math.max(4, Math.ceil(dist / (TILE_SIZE / 4))); 
+    
+    // Check multiple points along the path
     for (let i = 0; i <= steps; i++) {
         const t = i / steps;
         const checkX = startX + (endX - startX) * t;
         const checkY = startY + (endY - startY) * t;
-        for (const table of tables) { // Assumes 'tables' is globally available
+        
+        // Create a small collision box at the check point, not just a single point
+        const checkBox = {
+            x: checkX - TILE_SIZE/4,
+            y: checkY - TILE_SIZE/4,
+            width: TILE_SIZE/2,
+            height: TILE_SIZE/2
+        };
+        
+        for (const table of tables) {
             if (table.isBench) continue; // Benches don't block paths
-            if (checkX >= table.x && checkX <= table.x + table.width && checkY >= table.y && checkY <= table.y + table.height) return true;
+            if (checkCollision(checkBox, table)) return true;
         }
     }
     return false;

@@ -406,50 +406,133 @@ function updateKremerStudents() {
             if (student.messageTimer > 0) student.messageTimer--; else student.currentMessage = "";
 
             if (student.isAfraidOfTeacher) {
-                const escapeTarget = findPathAwayFromTeacher(student, player);
-                const finalPathTarget = findPathAroundObstacles(student, escapeTarget.x, escapeTarget.y);
-                const diffX = finalPathTarget.x - student.x; const diffY = finalPathTarget.y - student.y;
-                const distToTarget = Math.sqrt(diffX * diffX + diffY * diffY);
-
-                if (distToTarget > student.runSpeed) {
-                    let moveX = (diffX / distToTarget) * student.runSpeed; let moveY = (diffY / distToTarget) * student.runSpeed;
-                    moveX = moveX * 0.8 + student.lastDirection.x * 0.2;
-                    moveY = moveY * 0.8 + student.lastDirection.y * 0.2;
-                    const moveLen = Math.sqrt(moveX*moveX + moveY*moveY) || 1;
-                    if (moveLen > student.runSpeed) { moveX = (moveX/moveLen) * student.runSpeed; moveY = (moveY/moveLen) * student.runSpeed; }
-
-                    let nextX = student.x + moveX; let nextY = student.y + moveY; let collided = false;
-                    for (const table of tables) {
-                        if (table.isBench) continue;
-                        if (checkCollision({ ...student, x: nextX, y: nextY }, table)) {
-                            collided = true;
-                            // AI IMPROVEMENT: Modified collision response during escape
-                            student.x -= moveX * 0.25; // Less recoil
-                            student.y -= moveY * 0.25;
-
-                            const perturbAngle = (Math.random() - 0.5) * Math.PI / 2.5; // +/- 36 degrees
-                            const currentEscapeAngle = Math.atan2(student.lastDirection.y, student.lastDirection.x);
-                            const perturbedAngle = currentEscapeAngle + perturbAngle;
-                            student.lastDirection = {
-                                x: Math.cos(perturbedAngle) * student.runSpeed * 0.7, // Slightly reduce speed on perturbation
-                                y: Math.sin(perturbedAngle) * student.runSpeed * 0.7
-                            };
-                            student.escapeFailCounter++;
-                            if(student.escapeFailCounter > 7) { // Increased threshold slightly
-                                student.isAfraidOfTeacher = false; student.isWandering = true; student.wanderTimer = 0; student.escapeFailCounter = 0;
-                                student.currentMessage = "?"; student.messageTimer = 30; // Confused
-                            }
-                            break;
+                // Recalculate escape path less frequently to avoid jitter
+                if (student.escapeTimer % 15 === 0 || !student.escapeTarget) {
+                    student.escapeTarget = findPathAwayFromTeacher(student, player);
+                }
+                
+                // Move toward escape target
+                if (student.escapeTarget) {
+                    const diffX = student.escapeTarget.x - student.x;
+                    const diffY = student.escapeTarget.y - student.y;
+                    const distToTarget = Math.sqrt(diffX * diffX + diffY * diffY);
+                    
+                    // If we're close to the target or have been escaping for a while, consider ending escape
+                    if (distToTarget < student.runSpeed || student.escapeTimer > 180) {
+                        student.escapeTimer++;
+                        if (student.escapeTimer > 120) {
+                            student.isAfraidOfTeacher = false;
+                            student.isWandering = true;
+                            student.escapeTimer = 0;
+                            student.escapeTarget = null;
+                            student.escapeFailCounter = 0;
                         }
-                    }
-                    if (!collided) { student.x = nextX; student.y = nextY; student.escapeFailCounter = 0; student.lastDirection = { x: moveX, y: moveY };}
-                } else { // Reached near escape target or target is too close
-                    student.escapeTimer++; if(student.escapeTimer > 120) {
-                        student.isAfraidOfTeacher = false; student.isWandering = true; student.escapeTimer = 0;
+                    } else {
+                        // Try to move to the escape target with more advanced obstacle avoidance
+                        let moveX = (diffX / distToTarget) * student.runSpeed;
+                        let moveY = (diffY / distToTarget) * student.runSpeed;
+                        
+                        // Smooth movement with previous direction to avoid jitter
+                        moveX = moveX * 0.7 + (student.lastDirection.x || 0) * 0.3;
+                        moveY = moveY * 0.7 + (student.lastDirection.y || 0) * 0.3;
+                        
+                        // Normalize speed if needed
+                        const moveLen = Math.sqrt(moveX*moveX + moveY*moveY) || 1;
+                        if (moveLen > student.runSpeed) {
+                            moveX = (moveX/moveLen) * student.runSpeed;
+                            moveY = (moveY/moveLen) * student.runSpeed;
+                        }
+                        
+                        // Attempt movement with collision detection
+                        // First try moving normally
+                        let nextX = student.x + moveX;
+                        let nextY = student.y + moveY;
+                        let canMove = true;
+                        
+                        // Check for collisions
+                        for (const table of tables) {
+                            if (table.isBench) continue;
+                            if (checkCollision({ ...student, x: nextX, y: nextY }, table)) {
+                                canMove = false;
+                                break;
+                            }
+                        }
+                        
+                        if (canMove) {
+                            // If we can move normally, do so
+                            student.x = nextX;
+                            student.y = nextY;
+                            student.lastDirection = { x: moveX, y: moveY };
+                            student.escapeFailCounter = 0;
+                        } else {
+                            // If we can't move normally, try alternative movements
+                            
+                            // Try horizontal movement only
+                            nextX = student.x + moveX;
+                            nextY = student.y;
+                            canMove = true;
+                            
+                            for (const table of tables) {
+                                if (table.isBench) continue;
+                                if (checkCollision({ ...student, x: nextX, y: nextY }, table)) {
+                                    canMove = false;
+                                    break;
+                                }
+                            }
+                            
+                            if (canMove) {
+                                student.x = nextX;
+                                student.lastDirection = { x: moveX, y: 0 };
+                            } else {
+                                // Try vertical movement only
+                                nextX = student.x;
+                                nextY = student.y + moveY;
+                                canMove = true;
+                                
+                                for (const table of tables) {
+                                    if (table.isBench) continue;
+                                    if (checkCollision({ ...student, x: nextX, y: nextY }, table)) {
+                                        canMove = false;
+                                        break;
+                                    }
+                                }
+                                
+                                if (canMove) {
+                                    student.y = nextY;
+                                    student.lastDirection = { x: 0, y: moveY };
+                                } else {
+                                    // If we still can't move, pick a new escape target
+                                    student.escapeFailCounter++;
+                                    
+                                    if (student.escapeFailCounter > 5) {
+                                        const randomAngle = Math.random() * Math.PI * 2;
+                                        student.escapeTarget = {
+                                            x: student.x + Math.cos(randomAngle) * TILE_SIZE * 10,
+                                            y: student.y + Math.sin(randomAngle) * TILE_SIZE * 10
+                                        };
+                                        
+                                        // If too many consecutive failures, stop being afraid
+                                        if (student.escapeFailCounter > 15) {
+                                            student.isAfraidOfTeacher = false;
+                                            student.isWandering = true;
+                                            student.escapeTimer = 0;
+                                            student.escapeTarget = null;
+                                            student.escapeFailCounter = 0;
+                                            student.currentMessage = "?";
+                                            student.messageTimer = 30;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Make sure we're still within bounds
+                        student.x = Math.max(0, Math.min(student.x, WORLD_WIDTH - student.width));
+                        student.y = Math.max(0, Math.min(student.y, WORLD_HEIGHT - student.height));
+                        
+                        student.escapeTimer++;
                     }
                 }
-                student.x = Math.max(0, Math.min(student.x, WORLD_WIDTH - student.width));
-                student.y = Math.max(0, Math.min(student.y, WORLD_HEIGHT - student.height));
             } else if (student.isWandering) {
                 student.wanderTimer++;
                 if (student.wanderTimer >= student.wanderDelay || distance(student, {x: student.wanderTargetX, y: student.wanderTargetY, width:1, height:1}) < student.speed * 2) {
@@ -720,89 +803,93 @@ function updateZivStudents() {
 
 
 function findPathAwayFromTeacher(student, teacher) {
-    const dx = student.x - teacher.x; const dy = student.y - teacher.y;
-    let targetX, targetY;
-
-    if (student.personality.intelligence > 0.6) {
-        let bestHidingSpot = null; let maxScore = -Infinity;
-        tables.forEach(table => {
-            if (table.id === "kremer_table" || table.id === "ziv_table" || table.isBench) return; // Avoid main teacher tables as hiding spots
-            const tableCenterX = table.x + table.width / 2; const tableCenterY = table.y + table.height / 2;
-            const teacherToTableX = tableCenterX - teacher.x; const teacherToTableY = tableCenterY - teacher.y;
-            const distTeacherToTable = Math.sqrt(teacherToTableX*teacherToTableX + teacherToTableY*teacherToTableY) || 1;
-
-            // Position behind the table relative to the teacher
-            const hideX = tableCenterX + (teacherToTableX / distTeacherToTable) * (Math.max(table.width, table.height)/2 + TILE_SIZE * 1.5); // Hide a bit further
-            const hideY = tableCenterY + (teacherToTableY / distTeacherToTable) * (Math.max(table.width, table.height)/2 + TILE_SIZE * 1.5);
-
-            const distStudentToHide = distance(student, {x: hideX, y: hideY, width:1, height:1});
-            let score = (1000 / (distStudentToHide + 1)) + distTeacherToTable * 1.5; // Prioritize further tables more
-            if (isPathBlocked(student.x, student.y, hideX, hideY)) score -= 700; // Heavier penalty for blocked path
-            if (score > maxScore) { maxScore = score; bestHidingSpot = { x: hideX, y: hideY }; }
-        });
-        if (bestHidingSpot) { targetX = bestHidingSpot.x; targetY = bestHidingSpot.y; }
-        else { // Fallback if no good hiding spot found
-            const escapeDist = TILE_SIZE * (10 + 7 * student.personality.bravery + 3 * student.personality.intelligence); // Braver/smarter run further strategically
-            const currentDist = Math.sqrt(dx * dx + dy * dy) || 1;
-            targetX = student.x + (dx / currentDist) * escapeDist; targetY = student.y + (dy / currentDist) * escapeDist;
-        }
-    } else { // Less intelligent students run more directly
-        const escapeDist = TILE_SIZE * (8 + 5 * student.personality.bravery); // Bravery still counts
-        const currentDist = Math.sqrt(dx * dx + dy * dy) || 1;
-        targetX = student.x + (dx / currentDist) * escapeDist; targetY = student.y + (dy / currentDist) * escapeDist;
-    }
+    // Get direction away from teacher
+    const dx = student.x - teacher.x;
+    const dy = student.y - teacher.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    
+    // Base escape distance based on personality
+    const escapeDist = TILE_SIZE * (8 + 5 * student.personality.bravery);
+    
+    // Initial naive target
+    let targetX = student.x + (dx / dist) * escapeDist;
+    let targetY = student.y + (dy / dist) * escapeDist;
+    
+    // Keep inside world bounds
     targetX = Math.max(TILE_SIZE, Math.min(targetX, WORLD_WIDTH - TILE_SIZE * 2));
     targetY = Math.max(TILE_SIZE, Math.min(targetY, WORLD_HEIGHT - TILE_SIZE * 2));
-    return { x: targetX, y: targetY };
-}
-
-function findPathAroundObstacles(student, targetX, targetY) {
-    // Center of the student for path checking
-    const studentCX = student.x + student.width / 2;
-    const studentCY = student.y + student.height / 2;
-
-    if (!isPathBlocked(studentCX, studentCY, targetX, targetY)) return { x: targetX, y: targetY };
-
-    const possibleWaypoints = []; const checkAngles = 16; // Check 16 directions
-    const intelligenceFactor = 1 + student.personality.intelligence * 1.5; // More intelligent students check further/smarter waypoints
-
-    for (let i = 0; i < checkAngles; i++) {
-        const angle = (i / checkAngles) * Math.PI * 2;
-        const dist = TILE_SIZE * (3 + 4 * intelligenceFactor); // Base check distance, scaled by intelligence
-        const wpX = studentCX + Math.cos(angle) * dist;
-        const wpY = studentCY + Math.sin(angle) * dist;
-
-        if (wpX > 0 && wpX < WORLD_WIDTH && wpY > 0 && wpY < WORLD_HEIGHT &&
-            !isPathBlocked(studentCX, studentCY, wpX, wpY)) {
-            const distToFinalTarget = Math.sqrt(Math.pow(wpX - targetX, 2) + Math.pow(wpY - targetY, 2));
-            // Score: prioritize waypoints that lead closer to the final target
-            // and slightly penalize waypoints that deviate too much from the direct line to the target
-            const directDistToTarget = Math.sqrt(Math.pow(studentCX - targetX, 2) + Math.pow(studentCY - targetY, 2));
-            const deviationPenalty = Math.abs(dist + distToFinalTarget - directDistToTarget) * 0.3; // Penalize indirect paths less heavily
-
-            const score = distToFinalTarget + deviationPenalty;
-            possibleWaypoints.push({ x: wpX, y: wpY, score: score });
+    
+    // If not intelligent, just use this simple target
+    if (student.personality.intelligence <= 0.4) {
+        return { x: targetX, y: targetY };
+    }
+    
+    // For more intelligent students, try to find a better escape path
+    
+    // Check in a 180° arc away from teacher with different distances
+    const bestPaths = [];
+    const baseAngle = Math.atan2(dy, dx);
+    
+    // Try different escape angles and distances
+    for (let angleOffset = -Math.PI/2; angleOffset <= Math.PI/2; angleOffset += Math.PI/8) {
+        const tryAngle = baseAngle + angleOffset;
+        
+        // Try several distances
+        for (let distMult = 0.5; distMult <= 1.5; distMult += 0.5) {
+            const tryDist = escapeDist * distMult;
+            const tryX = student.x + Math.cos(tryAngle) * tryDist;
+            const tryY = student.y + Math.sin(tryAngle) * tryDist;
+            
+            // Keep inside world bounds
+            const adjustedX = Math.max(TILE_SIZE, Math.min(tryX, WORLD_WIDTH - TILE_SIZE * 2));
+            const adjustedY = Math.max(TILE_SIZE, Math.min(tryY, WORLD_HEIGHT - TILE_SIZE * 2));
+            
+            // Check if path is blocked
+            const blocked = isPathBlocked(
+                student.x + student.width/2,
+                student.y + student.height/2,
+                adjustedX + student.width/2,
+                adjustedY + student.height/2
+            );
+            
+            if (!blocked) {
+                // Score this path based on distance from teacher and lack of obstacles
+                const teacherDist = Math.sqrt(
+                    Math.pow(adjustedX - teacher.x, 2) + 
+                    Math.pow(adjustedY - teacher.y, 2)
+                );
+                
+                // Check for proximity to tables (avoid getting near them)
+                let nearTablePenalty = 0;
+                for (const table of tables) {
+                    if (table.isBench) continue;
+                    const tableDist = Math.sqrt(
+                        Math.pow((adjustedX + student.width/2) - (table.x + table.width/2), 2) +
+                        Math.pow((adjustedY + student.height/2) - (table.y + table.height/2), 2)
+                    );
+                    if (tableDist < TILE_SIZE * 4) {
+                        nearTablePenalty += (TILE_SIZE * 4 - tableDist) * 2;
+                    }
+                }
+                
+                // Higher score is better
+                const score = teacherDist - nearTablePenalty;
+                
+                bestPaths.push({
+                    x: adjustedX,
+                    y: adjustedY,
+                    score: score
+                });
+            }
         }
     }
-
-    if (possibleWaypoints.length > 0) {
-        possibleWaypoints.sort((a, b) => a.score - b.score);
-        return possibleWaypoints[0]; // Return the center of the best waypoint
-    }
-
-    // If no clear waypoint, try moving perpendicularly to the initial direction towards target for a short distance
-    // This is a more desperate fallback if all waypoints are blocked or none found
-    const initialDx = targetX - studentCX;
-    const initialDy = targetY - studentCY;
-    const perpAngle1 = Math.atan2(initialDy, initialDx) + Math.PI / 2;
-    const perpAngle2 = Math.atan2(initialDy, initialDx) - Math.PI / 2;
-    const shortDist = TILE_SIZE * 2;
-
-    const fallbackTarget1 = { x: studentCX + Math.cos(perpAngle1) * shortDist, y: studentCY + Math.sin(perpAngle1) * shortDist };
-    const fallbackTarget2 = { x: studentCX + Math.cos(perpAngle2) * shortDist, y: studentCY + Math.sin(perpAngle2) * shortDist };
-
-    if (!isPathBlocked(studentCX, studentCY, fallbackTarget1.x, fallbackTarget1.y)) return fallbackTarget1;
-    if (!isPathBlocked(studentCX, studentCY, fallbackTarget2.x, fallbackTarget2.y)) return fallbackTarget2;
     
-    return { x: targetX, y: targetY }; // Absolute fallback: aim for original target (might be stuck)
+    // If we found any unblocked paths, choose the best one
+    if (bestPaths.length > 0) {
+        bestPaths.sort((a, b) => b.score - a.score); // Sort by score descending
+        return bestPaths[0];
+    }
+    
+    // Fallback to simple target if no good paths found
+    return { x: targetX, y: targetY };
 }

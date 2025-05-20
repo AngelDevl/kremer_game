@@ -1,10 +1,9 @@
 const environment = {
     timeOfDay: 0,
-    dayLengthInSeconds: 60, // Example: 1 minute day
+    dayLengthInSeconds: 240, // CHANGED to 4 minutes per day (instead of 1 or 3)
     updateEnvironment: function() {
-        // Assumes 'gamePaused' and 'gameStates' are globally available
         if (gamePaused || gameStates.isTransitioningDay()) return;
-        gameTime += 1/60; // Assumes 'gameTime' is globally available
+        gameTime += 1/60;
         this.timeOfDay = Math.min(1, gameTime / this.dayLengthInSeconds);
         if (this.timeOfDay >= 1 && !gameStates.isTransitioningDay()) {
             gameStates.startDayTransition();
