@@ -79,17 +79,21 @@ function drawGame() {
     kremerSeatPositions.forEach((seat) => {
         const studentAtSeat = students.find(s => s.isCaught && s.isAtSeat && s.seatX === seat.x && s.seatY === seat.y);
         if (studentAtSeat) {
-            drawRect(seat.x, seat.y, TILE_SIZE, TILE_SIZE, studentAtSeat.color, lightLevel);
+            drawRect(seat.x, seat.y, TILE_SIZE + 1, TILE_SIZE + 1, studentAtSeat.color, lightLevel);
             const moodEmoji = getMoodEmoji(studentAtSeat);
-            drawText(`${moodEmoji} ${studentAtSeat.name} (K)`, seat.x + TILE_SIZE / 2, seat.y - 9, '#fff', 9, 'center', lightLevel);
+            drawText(moodEmoji, seat.x + TILE_SIZE / 2, seat.y - 16, '#fff', 16, 'center', lightLevel);
+
+            // Then draw the student name below it
+            drawText(`${studentAtSeat.name} (K)`, seat.x + TILE_SIZE / 2, seat.y - 4, '#fff', 9, 'center', lightLevel);
         } else {
-            drawRect(seat.x, seat.y, TILE_SIZE, TILE_SIZE, '#555', lightLevel);
+            drawRect(seat.x, seat.y, TILE_SIZE + 1, TILE_SIZE + 1, '#555', lightLevel);
         }
     });
 
     // Ziv Seats (visual squares)
+    console.log("Ziv Seat Positions:", zivSeatPositions);
     zivSeatPositions.forEach(seat => {
-        drawRect(seat.x, seat.y, TILE_SIZE, TILE_SIZE, '#4a4a4a', lightLevel);
+        drawRect(seat.x, seat.y, TILE_SIZE + 1, TILE_SIZE + 1, '#4a4a4a', lightLevel);
     });
 
     powerUps.forEach(powerUp => {
@@ -105,7 +109,12 @@ function drawGame() {
         if (!s.isAtSeat) {
             drawRect(s.x, s.y, s.width, s.height, s.color, lightLevel);
             const moodEmoji = getMoodEmoji(s);
-            drawText(`${moodEmoji} ${s.name} (K)`, s.x + s.width / 2, s.y - 9, '#fff', 9, 'center', lightLevel);
+
+            // Draw emoji first, larger and slightly higher
+            drawText(moodEmoji, s.x + s.width / 2, s.y - 16, '#fff', 16, 'center', lightLevel);
+
+            // Draw name below emoji
+            drawText(`${s.name} (K)`, s.x + s.width / 2, s.y - 4, '#fff', 9, 'center', lightLevel);
             const messageYOffset = s.y - 9 - 10; // Place message above name
             if (s.currentMessage && s.messageTimer > 0) drawText(s.currentMessage, s.x + s.width / 2, messageYOffset, '#ffcc00', 10, 'center', lightLevel);
             else if (s.isAfraidOfTeacher) drawText("!", s.x + s.width / 2, messageYOffset, '#ff3333', 10, 'center', lightLevel);
@@ -131,6 +140,7 @@ function drawGame() {
         drawText(`${s.name} (Z)`, s.x + s.width / 2, s.y - 9, '#fff', 9, 'center', lightLevel);
     });
 
+    console.log(player.x, player.y)
     drawRect(player.x, player.y, player.width, player.height, player.color, lightLevel);
     drawText(player.name, player.x + player.width / 2, player.y - 6, '#fff', 8, 'center', lightLevel);
     if (player.attractionField) {

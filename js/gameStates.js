@@ -169,8 +169,11 @@ const gameStates = {
         gameTime = 0;
         environment.timeOfDay = 0; // Reset environment time
         player.x = tables[KREMER_TABLE_INDEX].x + tables[KREMER_TABLE_INDEX].width / 2;
-        player.y = tables[KREMER_TABLE_INDEX].y + tables[KREMER_TABLE_INDEX].height + TILE_SIZE * 2;
-        player.targetX = player.x; player.targetY = player.y;
+        player.y = tables[KREMER_TABLE_INDEX].y - TILE_SIZE * 1.5; // Position above Kremer's table
+        player.targetX = player.x; 
+        player.targetY = player.y;
+        player.dx = 0; // <--- ADD THIS LINE
+        player.dy = 0; // <--- ADD THIS LINE
         player.stamina = player.maxStamina;
 
         const previouslyCaughtKremerStudentNames = students.filter(s => s.isCaught).map(s => s.name);
@@ -253,9 +256,11 @@ const gameStates = {
                 this.currentState = this.VICTORY;
                 player.dx = 0; player.dy = 0; // Stop player movement
                 keys.up = keys.down = keys.left = keys.right = keys.shift = false;
-                if (isTouchDevice && joystick.active) { // Reset joystick
+                if (isTouchDevice && joystick && joystick.active) { // Reset joystick
                     joystick.active = false; joystick.touchId = null;
-                    joystick.stickX = joystick.x; joystick.stickY = joystick.y;
+                    if (typeof joystick.x !== 'undefined' && typeof joystick.y !== 'undefined') {
+                        joystick.stickX = joystick.x; joystick.stickY = joystick.y;
+                    }
                 }
             }
         } else if (this.currentState === this.DAY_TRANSITION_OUT) {
@@ -263,7 +268,7 @@ const gameStates = {
             if (fadeOverlayAlpha >= 1) {
                 fadeOverlayAlpha = 1;
                 currentDay++;
-                this.resetDay();
+                this.resetDay(); // Player.dx and dy will be reset here
                 showGameMessage(`Day ${currentDay}`, 3000);
                 this.currentState = this.DAY_TRANSITION_IN;
             }
@@ -273,6 +278,14 @@ const gameStates = {
                 fadeOverlayAlpha = 0;
                 this.currentState = this.GAME;
                 gamePaused = false;
+                // Optionally, also clear input flags here as a safeguard, though resetting dx/dy is key
+                // keys.up = keys.down = keys.left = keys.right = keys.shift = false;
+                // if (isTouchDevice && joystick && joystick.active) { 
+                //     joystick.active = false; joystick.touchId = null;
+                //     if (typeof joystick.x !== 'undefined' && typeof joystick.y !== 'undefined') {
+                //        joystick.stickX = joystick.x; joystick.stickY = joystick.y;
+                //     }
+                // }
             }
         }
     },
