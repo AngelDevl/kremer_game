@@ -27,20 +27,21 @@
             max-height: 100%; /* Ensure canvas doesn't overflow */
             object-fit: contain; 
         }
-        #gameUI {
+        #gameUI { /* This is the temporary message box */
             position: absolute;
-            top: 10px;
-            left: 50%; /* Center horizontally */
-            transform: translateX(-50%); /* Adjust for centering */
-            padding: 8px 12px;
-            background-color: rgba(0,0,0,0.75); 
-            border-radius: 5px;
-            font-size: clamp(0.6em, 2vw, 0.8em); 
+            top: 20px; /* Adjusted top for better visibility */
+            left: 50%; 
+            transform: translateX(-50%); 
+            padding: 10px 15px;
+            background-color: rgba(0,0,0,0.8); 
+            border-radius: 8px;
+            font-size: clamp(0.7em, 2.5vw, 1em); 
             color: #ffcc00;
-            z-index: 10;
+            z-index: 100; /* Ensure it's above game UI like joystick */
             pointer-events: none;
-            max-width: 80%; 
+            max-width: 90%; 
             text-align: center;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
         .hidden {
             display: none;
@@ -54,10 +55,12 @@
         // --- Canvas and Context ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const gameUI = document.getElementById('gameUI');
+        const gameUIMessage = document.getElementById('gameUI'); // Renamed for clarity
 
-        // --- Mobile Detection ---
+        // --- Mobile Detection & Fullscreen ---
         const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0);
+        let isFullscreenActive = false;
+        let screenEdgePadding = 0; // Padding for mobile controls if not fullscreen
 
         // --- Game Settings ---
         const TILE_SIZE = 20; 
@@ -66,8 +69,17 @@
         const DETECTION_RADIUS = TILE_SIZE * 8;
         const ESCAPE_RADIUS = TILE_SIZE * 5;
         const CAPTURE_RADIUS = TILE_SIZE * 0.8;
-        let gameTime = 0;
+        let gameTime = 0; // Real-world seconds elapsed in current game day for internal logic
         let gamePaused = false;
+        let currentDay = 1;
+
+        // --- Day Cycle Variables ---
+        const GAME_DAY_START_HOUR = 6.5; // 6:30 AM
+        const GAME_DAY_END_HOUR = 13.0;  // 1:00 PM
+        const GAME_DAY_DURATION_HOURS = GAME_DAY_END_HOUR - GAME_DAY_START_HOUR; // 6.5 hours
+        const FADE_SPEED = 0.02; // Speed of fade transition
+        let fadeOverlayAlpha = 0;
+
 
         // --- Camera ---
         const camera = {
@@ -83,14 +95,15 @@
             x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2,
             width: TILE_SIZE, height: TILE_SIZE,
             color: '#007bff', 
-            baseSpeed: 30, // Kept from user's code, effective speed will be adjusted for mobile
-            currentSpeed: 30,
+            baseSpeed: 25, // Adjusted for more balanced gameplay
+            currentSpeed: 25,
+            sprintMultiplier: 1.8, // Adjusted sprint factor
             targetX: WORLD_WIDTH / 2, targetY: WORLD_HEIGHT / 2,
             dx: 0, dy: 0,
             movementSmoothing: 0.2,
             stamina: 100, maxStamina: 100,
             staminaRegenRate: 0.5, staminaDepletionRate: 0.8,
-            isSprinting: false, sprintMultiplier: 1.6,
+            isSprinting: false, 
             captureCount: 0,
             radarActive: false,
             attractionField: false, attractionRadius: 0, attractionForce: 0
@@ -161,77 +174,87 @@
         const powerUps = [];
         const powerUpTypes = [
             {
-                name: "Speed Boost", color: "#ffcc00", duration: 10,
+                name: "Speed Boost", color: "#ffcc00",
                 effect: () => {
-                    const originalBaseSpeed = player.baseSpeed; // Store original for reversion
-                    player.baseSpeed *= 1.5; // Boost speed
-                    gameUI.classList.remove('hidden'); gameUI.textContent = "Speed Boost Active!";
+                    const originalBaseSpeed = player.baseSpeed; 
+                    player.baseSpeed = 6; // Temporarily set a higher base speed
+                    showGameMessage("Speed Boost Active!");
                     setTimeout(() => {
                         player.baseSpeed = originalBaseSpeed; 
-                        gameUI.textContent = "Speed boost ended!";
-                        setTimeout(() => gameUI.classList.add('hidden'), 2000);
-                    }, 5000); // Shorter duration for boosted speed
+                        showGameMessage("Speed boost ended!");
+                    }, 5000); 
                 }
             },
             {
-                name: "Student Freeze", color: "#00ccff", duration: 5,
+                name: "Student Freeze", color: "#00ccff",
                 effect: () => {
                     students.forEach(s => { if (!s.isCaught) s.frozenTimer = 5 * 60; }); 
-                    gameUI.classList.remove('hidden');
-                    gameUI.textContent = "Student Freeze active!";
-                    setTimeout(() => gameUI.classList.add('hidden'), 2000);
+                    showGameMessage("Student Freeze active!");
                 }
             },
             {
-                name: "Attraction Field", color: "#ff00cc", duration: 7,
+                name: "Attraction Field", color: "#ff00cc",
                 effect: () => {
                     player.attractionField = true;
                     player.attractionRadius = TILE_SIZE * 10;
                     player.attractionForce = 0.5;
-                    gameUI.classList.remove('hidden');
-                    gameUI.textContent = "Attraction Field active!";
+                    showGameMessage("Attraction Field active!");
                     setTimeout(() => {
                         player.attractionField = false;
-                        gameUI.textContent = "Attraction field deactivated!";
-                        setTimeout(() => gameUI.classList.add('hidden'), 2000);
+                        showGameMessage("Attraction field deactivated!");
                     }, 7000);
                 }
             },
             {
-                name: "Stamina Refill", color: "#00ff00", duration: 0,
+                name: "Stamina Refill", color: "#00ff00",
                 effect: () => {
                     player.stamina = player.maxStamina;
-                    gameUI.classList.remove('hidden');
-                    gameUI.textContent = "Stamina Refilled!";
-                    setTimeout(() => gameUI.classList.add('hidden'), 2000);
+                    showGameMessage("Stamina Refilled!");
                 }
             }
         ];
 
         const environment = {
+            // timeOfDay: 0 to 1 represents the progression through the game day (6:30 to 13:00)
             timeOfDay: 0, 
-            dayLength: 120, 
+            dayLengthInSeconds: 120, // Real-world seconds for one game day (6.5 game hours)
             updateEnvironment: function() {
-                if (gamePaused) return;
-                this.timeOfDay = (this.timeOfDay + 1/(this.dayLength * 60)) % 1;
+                if (gamePaused || gameStates.isTransitioningDay()) return;
+                
+                // Increment gameTime (real-world seconds tracker for the current day's progression)
+                gameTime += 1/60; // Assuming 60 FPS
+
+                // Update timeOfDay based on gameTime
+                this.timeOfDay = Math.min(1, gameTime / this.dayLengthInSeconds);
+
+                if (this.timeOfDay >= 1 && !gameStates.isTransitioningDay()) {
+                    gameStates.startDayTransition();
+                }
             },
             getBackgroundColor: function() {
+                // Normalize timeOfDay to a 0-1 range representing dawn to noon for color calculation
+                // Since our game day is short (6:30 to 13:00), we can map it to a brighter part of a typical day cycle.
+                // Let's use a simpler progression: starts slightly dim, brightens, then slightly dims.
                 let skyColor;
-                if (this.timeOfDay < 0.25) { 
-                    const t = this.timeOfDay / 0.25;
-                    skyColor = `rgb(${Math.floor(50 + t * 100)}, ${Math.floor(50 + t * 150)}, ${Math.floor(100 + t * 155)})`;
-                } else if (this.timeOfDay < 0.75) { 
-                    skyColor = '#87CEEB'; 
-                } else { 
-                    const t = (this.timeOfDay - 0.75) / 0.25;
-                    skyColor = `rgb(${Math.floor(150 - t * 100)}, ${Math.floor(200 - t * 150)}, ${Math.floor(255 - t * 155)})`;
+                const progress = this.timeOfDay; // 0 to 1
+
+                if (progress < 0.1) { // Early morning (6:30 - ~7:00)
+                    const t = progress / 0.1;
+                    skyColor = `rgb(${Math.floor(80 + t * 50)}, ${Math.floor(100 + t * 80)}, ${Math.floor(150 + t * 85)})`; // Darker blue to lighter
+                } else if (progress < 0.8) { // Main part of the morning/midday ( ~7:00 - ~12:00)
+                     skyColor = '#87CEEB'; // Sky blue
+                } else { // Approaching 13:00
+                    const t = (progress - 0.8) / 0.2;
+                    skyColor = `rgb(${Math.floor(135 - t * 30)}, ${Math.floor(206 - t * 20)}, ${Math.floor(235 - t * 10)})`; // Sky blue slightly warmer/dimmer
                 }
                 return skyColor;
             },
             getLightLevel: function() {
-                if (this.timeOfDay < 0.25) return 0.7 + this.timeOfDay * 1.2; 
-                else if (this.timeOfDay < 0.75) return 1.0; 
-                else return 1.0 - (this.timeOfDay - 0.75) * 0.8; 
+                // Light level peaks mid-day
+                const progress = this.timeOfDay; // 0 to 1
+                if (progress < 0.1) return 0.8 + progress * 2; // 0.8 to 1.0 (dawn)
+                else if (progress < 0.8) return 1.0;         // Full brightness
+                else return 1.0 - (progress - 0.8) * 1;      // 1.0 to 0.8 (approaching 13:00)
             }
         };
 
@@ -247,7 +270,7 @@
                             originalSpeeds[i] = { speed: s.speed, runSpeed: s.runSpeed, returnSpeed: s.returnSpeed };
                             s.speed *= slowFactor; s.runSpeed *= slowFactor; s.returnSpeed *= slowFactor;
                         });
-                        gameUI.classList.remove('hidden'); gameUI.textContent = "Time Warp active!";
+                        showGameMessage("Time Warp active!");
                         ctx.filter = "sepia(0.5) hue-rotate(240deg)"; 
                         setTimeout(() => { 
                             students.forEach((s, i) => {
@@ -258,8 +281,7 @@
                                 }
                             });
                             ctx.filter = "none"; 
-                            gameUI.textContent = "Time Warp ended";
-                            setTimeout(() => gameUI.classList.add('hidden'), 2000);
+                            showGameMessage("Time Warp ended");
                             specialAbilities.active = false;
                             specialAbilities.cooldown = specialAbilities.maxCooldown;
                         }, 2500); 
@@ -270,11 +292,10 @@
                     activate: function() {
                         const originalSpeed = player.baseSpeed;
                         player.baseSpeed *= 2; player.stamina = player.maxStamina; 
-                        gameUI.classList.remove('hidden'); gameUI.textContent = "Super Sprint active!";
+                        showGameMessage("Super Sprint active!");
                         setTimeout(() => {
                             player.baseSpeed = originalSpeed;
-                            gameUI.textContent = "Super Sprint ended";
-                            setTimeout(() => gameUI.classList.add('hidden'), 2000);
+                            showGameMessage("Super Sprint ended");
                             specialAbilities.active = false;
                             specialAbilities.cooldown = specialAbilities.maxCooldown;
                         }, 7000); 
@@ -284,11 +305,10 @@
                     name: "Student Radar", description: "Reveal the positions of all students.",
                     activate: function() {
                         player.radarActive = true;
-                        gameUI.classList.remove('hidden'); gameUI.textContent = "Student Radar active!";
+                        showGameMessage("Student Radar active!");
                         setTimeout(() => {
                             player.radarActive = false;
-                            gameUI.textContent = "Student Radar ended";
-                            setTimeout(() => gameUI.classList.add('hidden'), 2000);
+                            showGameMessage("Student Radar ended");
                             specialAbilities.active = false;
                             specialAbilities.cooldown = specialAbilities.maxCooldown;
                         }, 12000); 
@@ -297,35 +317,30 @@
             ],
             selectedAbility: 0,
             update: function() {
-                if (gamePaused) return;
+                if (gamePaused || gameStates.isTransitioningDay()) return;
                 if (this.cooldown > 0) this.cooldown--;
             },
             activateAbility: function() {
-                if (gamePaused) return;
+                if (gamePaused || gameStates.isTransitioningDay()) return;
                 if (this.cooldown === 0 && !this.active) {
                     this.active = true; this.available[this.selectedAbility].activate();
                 } else if (this.cooldown > 0) {
-                    gameUI.classList.remove('hidden');
-                    gameUI.textContent = `Ability on cooldown: ${Math.ceil(this.cooldown / 60)}s`;
-                    setTimeout(() => gameUI.classList.add('hidden'), 2000);
+                    showGameMessage(`Ability on cooldown: ${Math.ceil(this.cooldown / 60)}s`);
                 } else if (this.active){
-                    gameUI.classList.remove('hidden');
-                    gameUI.textContent = `Ability already active!`;
-                    setTimeout(() => gameUI.classList.add('hidden'), 2000);
+                    showGameMessage(`Ability already active!`);
                 }
             },
             cycleAbility: function() {
-                if (gamePaused || this.active) return; 
+                if (gamePaused || this.active || gameStates.isTransitioningDay()) return; 
                 this.selectedAbility = (this.selectedAbility + 1) % this.available.length;
-                gameUI.classList.remove('hidden');
-                gameUI.textContent = `Selected: ${this.available[this.selectedAbility].name}`;
-                setTimeout(() => gameUI.classList.add('hidden'), 2000);
+                showGameMessage(`Selected: ${this.available[this.selectedAbility].name}`);
             }
         };
         
         const gameStates = {
             MENU: 'menu', GAME: 'game', PAUSED: 'paused',
             GAME_OVER: 'gameOver', VICTORY: 'victory', INSTRUCTIONS: 'instructions',
+            DAY_TRANSITION_OUT: 'dayTransitionOut', DAY_TRANSITION_IN: 'dayTransitionIn',
             currentState: 'menu',
             startScreen: {
                 title: "Catch The Students!",
@@ -335,6 +350,7 @@
                     { text: "How to Play", action: () => gameStates.showInstructionsScreen() }
                 ],
                 selectedOption: 0,
+                fullscreenButtonRect: null, // For touch detection
                 draw: function() {
                     ctx.fillStyle = '#2c2c2c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
                     ctx.fillStyle = '#fff'; 
@@ -350,6 +366,16 @@
                     });
                     ctx.font = `${Math.min(12, canvas.width / 40, canvas.height / 35)}px "Press Start 2P"`; ctx.fillStyle = '#aaa';
                     ctx.fillText('Navigate: Keys/Touch, Select: Enter/Tap', canvas.width / 2, canvas.height - Math.min(50, canvas.height / 8));
+
+                    if (isTouchDevice) {
+                        const fsBtnSize = Math.min(canvas.width, canvas.height) * 0.06;
+                        const fsBtnPadding = Math.min(15, canvas.width * 0.03);
+                        const fsBtnX = canvas.width - fsBtnSize - fsBtnPadding;
+                        const fsBtnY = fsBtnPadding;
+                        this.fullscreenButtonRect = {x: fsBtnX, y: fsBtnY, width: fsBtnSize, height: fsBtnSize};
+                        drawRect(fsBtnX, fsBtnY, fsBtnSize, fsBtnSize, isFullscreenActive ? 'rgba(80,80,80,0.7)' : 'rgba(120,120,120,0.7)');
+                        drawText(isFullscreenActive ? '[ ]' : 'FS', fsBtnX + fsBtnSize/2, fsBtnY + fsBtnSize/2 + fsBtnSize*0.1, '#fff', fsBtnSize*0.4);
+                    }
                 },
                 handleInput: function(key) {
                     switch(key.toLowerCase()) {
@@ -383,8 +409,8 @@
                         "  'USE': Activate Ability",
                         "  'SWAP': Cycle Ability",
                         "",
-                        "Goal: Catch all 15 students!",
-                        "Collect power-ups for advantages."
+                        "Goal: Catch all students before 13:00!",
+                        "A new day starts if time runs out."
                     ];
                     const lineHeight = Math.min(22, canvas.height / 22);
                     const startY = Math.min(120, canvas.height / 6);
@@ -400,11 +426,11 @@
                     }
                 }
             },
-            pauseMenu: { // Similar responsive font adjustments as startScreen
+            pauseMenu: { 
                  options: [
                     { text: "Resume", action: () => { gameStates.currentState = gameStates.GAME; gamePaused = false; } },
-                    { text: "Restart", action: () => gameStates.restartGame() },
-                    { text: "Main Menu", action: () => { gameStates.currentState = gameStates.MENU; gamePaused = false; gameTime = 0;} }
+                    { text: "Restart Day", action: () => gameStates.restartCurrentDay() }, // Changed from Restart Game
+                    { text: "Main Menu", action: () => { gameStates.currentState = gameStates.MENU; gamePaused = false; gameTime = 0; currentDay = 1;} }
                 ],
                 selectedOption: 0,
                 draw: function() {
@@ -429,31 +455,32 @@
                     }
                 }
             },
-            gameOverScreen: { // Similar responsive font adjustments
+            gameOverScreen: { // This state might be less relevant if day cycle handles time up
                 draw: function() {
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
                     ctx.fillStyle = '#ff5555'; 
                     ctx.font = `${Math.min(32, canvas.width / 18, canvas.height / 15)}px "Press Start 2P"`; 
                     ctx.textAlign = 'center';
-                    ctx.fillText("TIME'S UP!", canvas.width / 2, canvas.height / 3);
+                    ctx.fillText("ALL STUDENTS CAUGHT!", canvas.width / 2, canvas.height / 3); // Changed message
                     ctx.fillStyle = '#fff'; 
                     ctx.font = `${Math.min(20, canvas.width / 25, canvas.height / 20)}px "Press Start 2P"`;
-                    ctx.fillText(`Students Caught: ${player.captureCount} / ${students.length}`, canvas.width / 2, canvas.height / 2);
-                    const minutes = Math.floor(gameTime / 60); const seconds = Math.floor(gameTime % 60);
-                    ctx.fillText(`Time: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`, canvas.width / 2, canvas.height / 2 + Math.min(40, canvas.height/12));
+                    ctx.fillText(`Total Days: ${currentDay}`, canvas.width / 2, canvas.height / 2);
+                     const totalGameTimeSeconds = (currentDay -1) * environment.dayLengthInSeconds + gameTime;
+                    const minutes = Math.floor(totalGameTimeSeconds / 60); 
+                    const seconds = Math.floor(totalGameTimeSeconds % 60);
+                    ctx.fillText(`Total Play Time: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`, canvas.width / 2, canvas.height / 2 + Math.min(40, canvas.height/12));
                     ctx.fillStyle = '#ffcc00'; 
                     ctx.font = `${Math.min(16, canvas.width / 30, canvas.height / 25)}px "Press Start 2P"`;
-                    ctx.fillText("Tap or Press ENTER to Retry", canvas.width / 2, canvas.height / 2 + Math.min(100, canvas.height/6));
-                    ctx.fillText("Press ESC for Main Menu", canvas.width / 2, canvas.height / 2 + Math.min(130, canvas.height/5));
+                    ctx.fillText("Tap or Press ENTER for Main Menu", canvas.width / 2, canvas.height / 2 + Math.min(100, canvas.height/6));
                 },
                 handleInput: function(key) {
                     switch(key.toLowerCase()) {
-                        case 'enter': case ' ': gameStates.restartGame(); break;
-                        case 'escape': gameStates.currentState = gameStates.MENU; gameTime = 0; break;
+                        case 'enter': case ' ': gameStates.currentState = gameStates.MENU; gameTime = 0; currentDay = 1; break;
+                        case 'escape': gameStates.currentState = gameStates.MENU; gameTime = 0; currentDay = 1; break;
                     }
                 }
             },
-            victoryScreen: { // Similar responsive font adjustments
+            victoryScreen: { // This is now the true game over / win screen
                 draw: function() {
                     ctx.fillStyle = 'rgba(0, 0, 100, 0.3)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
                     ctx.fillStyle = '#fff';
@@ -469,55 +496,102 @@
                     ctx.fillText("VICTORY!", canvas.width / 2, canvas.height / 3);
                     ctx.shadowBlur = 0; ctx.fillStyle = '#fff'; 
                     ctx.font = `${Math.min(20, canvas.width / 25, canvas.height / 20)}px "Press Start 2P"`;
-                    const minutes = Math.floor(gameTime / 60); const seconds = Math.floor(gameTime % 60);
-                    ctx.fillText(`All students captured in ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`, canvas.width / 2, canvas.height / 2);
+                    ctx.fillText(`All students captured!`, canvas.width / 2, canvas.height / 2 - Math.min(20, canvas.height/20) );
+                    ctx.fillText(`It took you ${currentDay} day(s).`, canvas.width / 2, canvas.height / 2 + Math.min(20, canvas.height/20));
                     ctx.fillStyle = '#ffcc00'; 
                     ctx.font = `${Math.min(16, canvas.width / 30, canvas.height / 25)}px "Press Start 2P"`;
-                    ctx.fillText("Tap or Press ENTER to Play Again", canvas.width / 2, canvas.height / 2 + Math.min(100, canvas.height/6));
-                    ctx.fillText("Press ESC for Main Menu", canvas.width / 2, canvas.height / 2 + Math.min(130, canvas.height/5));
+                    ctx.fillText("Tap or Press ENTER for Main Menu", canvas.width / 2, canvas.height / 2 + Math.min(100, canvas.height/6));
                 },
                 handleInput: function(key) {
                      switch(key.toLowerCase()) {
-                        case 'enter': case ' ': gameStates.restartGame(); break;
-                        case 'escape': gameStates.currentState = gameStates.MENU; gameTime = 0; break;
+                        case 'enter': case ' ': gameStates.currentState = gameStates.MENU; gameTime = 0; currentDay = 1; break;
+                        case 'escape': gameStates.currentState = gameStates.MENU; gameTime = 0; currentDay = 1; break;
                     }
                 }
             },
-            startGame: function() {
-                this.currentState = this.GAME; gamePaused = false;
-                player.captureCount = 0; player.stamina = player.maxStamina;
+            isTransitioningDay: function() {
+                return this.currentState === this.DAY_TRANSITION_OUT || this.currentState === this.DAY_TRANSITION_IN;
+            },
+            startDayTransition: function() {
+                if (this.isTransitioningDay()) return;
+                this.currentState = this.DAY_TRANSITION_OUT;
+                gamePaused = true; // Pause most game logic during transition
+                showGameMessage("End of the day...", 5000); // Show for longer
+            },
+            resetDay: function() {
+                gameTime = 0; // Reset real-world seconds tracker for the day
+                environment.timeOfDay = 0;
                 player.x = tables[KREMER_TABLE_INDEX].x + tables[KREMER_TABLE_INDEX].width / 2;
                 player.y = tables[KREMER_TABLE_INDEX].y + tables[KREMER_TABLE_INDEX].height + TILE_SIZE * 2;
                 player.targetX = player.x; player.targetY = player.y;
-                player.dx = 0; player.dy = 0; player.radarActive = false; player.attractionField = false;
-                specialAbilities.cooldown = 0; specialAbilities.active = false; specialAbilities.selectedAbility = 0;
-                initializeStudents(); spawnPowerUps(); gameTime = 0;
-                environment.timeOfDay = 0.25; 
-                updateCamera(); 
-                gameUI.classList.remove('hidden');
-                gameUI.textContent = "Find and catch all students!";
-                setTimeout(() => gameUI.classList.add('hidden'), 3000);
-                if (isTouchDevice) setupMobileControls(); // Setup joystick and buttons
+                player.stamina = player.maxStamina; // Refill stamina for new day
+                // Students are reset (they run away again)
+                // Only non-caught students are re-initialized to new positions.
+                // Caught students should remain at their seats.
+                const caughtStudentNames = students.filter(s => s.isCaught).map(s => s.name);
+                initializeStudents(); // This will re-scatter all students by default.
+                // Re-catch students who were already caught to place them back at seats correctly.
+                students.forEach(s => {
+                    if (caughtStudentNames.includes(s.name)) {
+                        s.isCaught = true;
+                        // Snap them to seat for simplicity or let them walk back (current logic)
+                        s.x = s.seatX;
+                        s.y = s.seatY;
+                    }
+                });
+
+                spawnPowerUps();
+                updateCamera();
             },
-            restartGame: function() { this.startGame(); },
+            startGame: function() { // Starts game from Day 1
+                currentDay = 1;
+                player.captureCount = 0; // Reset total captures
+                this.resetDay(); // Reset day specific things
+                this.currentState = this.GAME; 
+                gamePaused = false;
+                fadeOverlayAlpha = 0; // Ensure no fade overlay from previous game
+                specialAbilities.cooldown = 0; specialAbilities.active = false; specialAbilities.selectedAbility = 0;
+                showGameMessage(`Day ${currentDay}: Catch the students!`);
+                if (isTouchDevice) setupMobileControls();
+            },
+            restartCurrentDay: function() { // Restarts the current day
+                this.resetDay();
+                this.currentState = this.GAME;
+                gamePaused = false;
+                fadeOverlayAlpha = 0;
+                showGameMessage(`Restarting Day ${currentDay}`);
+            },
             showInstructionsScreen: function() { this.currentState = this.INSTRUCTIONS; },
             handleKeyPress: function(key) { 
                 switch(this.currentState) {
                     case this.MENU: this.startScreen.handleInput(key); break;
                     case this.INSTRUCTIONS: this.instructionsScreen.handleInput(key); break;
                     case this.PAUSED: this.pauseMenu.handleInput(key); break;
-                    case this.GAME_OVER: this.gameOverScreen.handleInput(key); break;
+                    case this.GAME_OVER: this.gameOverScreen.handleInput(key); break; // Or VICTORY
                     case this.VICTORY: this.victoryScreen.handleInput(key); break;
                 }
             },
-            update: function() {
+            update: function() { // Main game state update logic
                 if (this.currentState === this.GAME && !gamePaused) {
                     if (students.length > 0 && player.captureCount >= students.length ) { 
-                        this.currentState = this.VICTORY;
+                        this.currentState = this.VICTORY; // All students ever are caught
                     }
-                    const TIME_LIMIT = 5 * 60; 
-                    if (gameTime > TIME_LIMIT && player.captureCount < students.length) {
-                        this.currentState = this.GAME_OVER;
+                    // Day transition is handled by environment.updateEnvironment triggering startDayTransition
+                } else if (this.currentState === this.DAY_TRANSITION_OUT) {
+                    fadeOverlayAlpha += FADE_SPEED;
+                    if (fadeOverlayAlpha >= 1) {
+                        fadeOverlayAlpha = 1;
+                        currentDay++; 
+                        this.resetDay(); // Reset positions, time for the new day
+                        showGameMessage(`Day ${currentDay}`, 3000);
+                        this.currentState = this.DAY_TRANSITION_IN;
+                    }
+                } else if (this.currentState === this.DAY_TRANSITION_IN) {
+                    fadeOverlayAlpha -= FADE_SPEED;
+                    if (fadeOverlayAlpha <= 0) {
+                        fadeOverlayAlpha = 0;
+                        this.currentState = this.GAME;
+                        gamePaused = false; // Resume game logic
                     }
                 }
             },
@@ -528,9 +602,21 @@
                     case this.PAUSED: this.pauseMenu.draw(); break;
                     case this.GAME_OVER: this.gameOverScreen.draw(); break;
                     case this.VICTORY: this.victoryScreen.draw(); break;
+                    // Day transition fade is drawn in the main draw() function
                 }
             }
         };
+        
+        function showGameMessage(message, duration = 2000) {
+            gameUIMessage.textContent = message;
+            gameUIMessage.classList.remove('hidden');
+            setTimeout(() => {
+                if (gameUIMessage.textContent === message) { // Only hide if it's still the same message
+                    gameUIMessage.classList.add('hidden');
+                }
+            }, duration);
+        }
+
 
         function distance(obj1, obj2) {
             const centerX1 = obj1.x + obj1.width / 2; const centerY1 = obj1.y + obj1.height / 2;
@@ -706,7 +792,7 @@
         }
 
         function updatePowerUps() {
-            if (gamePaused) return;
+            if (gamePaused || gameStates.isTransitioningDay()) return;
             for (let i = powerUps.length - 1; i >= 0; i--) {
                 const powerUp = powerUps[i]; powerUp.pulseTimer += 0.05; 
                 if (checkCollision(player, powerUp)) {
@@ -727,20 +813,18 @@
         }
 
         function updatePlayer() {
-            if (gamePaused) return;
+            if (gamePaused || gameStates.isTransitioningDay()) return;
 
-            let mobileSpeedFactor = 1.0;
-            if (isTouchDevice) {
-                mobileSpeedFactor = 1.5; // Make player 50% faster on mobile
-            }
-
-            if (player.isSprinting && keys.shift && player.stamina > 0) {
-                player.currentSpeed = player.baseSpeed * player.sprintMultiplier * mobileSpeedFactor;
+            if (player.isSprinting && keys.shift && player.stamina > 0) { // keys.shift is for keyboard AND mobile sprint button
+                player.currentSpeed = player.baseSpeed * player.sprintMultiplier;
                 player.stamina = Math.max(0, player.stamina - player.staminaDepletionRate);
-                if (player.stamina <= 0) player.isSprinting = false; 
+                if (player.stamina <= 0) {
+                    player.isSprinting = false; 
+                    keys.shift = false; // Also release the "key" state for mobile button
+                    if (mobileButtons.sprint.pressed) mobileButtons.sprint.pressed = false;
+                }
             } else {
-                player.currentSpeed = player.baseSpeed * mobileSpeedFactor;
-                // player.isSprinting = false; // This is handled by keyup/touchend for sprint button
+                player.currentSpeed = player.baseSpeed;
                 if (player.stamina < player.maxStamina) player.stamina = Math.min(player.maxStamina, player.stamina + player.staminaRegenRate);
             }
 
@@ -786,7 +870,7 @@
         }
 
         function updateStudents() {
-            if (gamePaused) return;
+            if (gamePaused || gameStates.isTransitioningDay()) return;
             students.forEach(student => {
                 if (student.frozenTimer && student.frozenTimer > 0) { student.frozenTimer--; return; } 
 
@@ -908,28 +992,22 @@
                     if (distance(player, student) < CAPTURE_RADIUS && !student.isCaught) {
                         student.isCaught = true; student.isWandering = false; student.isAfraidOfTeacher = false;
                         player.captureCount++;
-                        gameUI.classList.remove('hidden');
-                        gameUI.textContent = `${student.name} caught! (${player.captureCount}/${students.length})`;
-                        setTimeout(() => gameUI.classList.add('hidden'), 2000);
+                        showGameMessage(`${student.name} caught! (${player.captureCount}/${students.length})`);
                     }
                 }
             });
         }
 
-        function updateGameTime() {
-            if (!gamePaused) gameTime += 1/60; 
-        }
 
-        function update() {
-            if (gameStates.currentState === gameStates.GAME && !gamePaused) {
-                environment.updateEnvironment(); 
+        function update() { // Main update loop
+            environment.updateEnvironment(); // Handles gameTime increment and day transition check
+            if (!gamePaused && !gameStates.isTransitioningDay()) { // Only run these if game is active
                 specialAbilities.update();
                 updatePlayer(); 
                 updateStudents(); 
                 updatePowerUps();
-                updateCamera(); 
-                updateGameTime();
             }
+            updateCamera(); // Camera might still move slightly during fade if player was moving
             gameStates.update(); 
         }
         
@@ -975,8 +1053,7 @@
             ctx.fillRect(camera.x, camera.y, camera.width / camera.zoom, camera.height / camera.zoom); 
             
             const lightLevel = environment.getLightLevel();
-            // Draw grid with light level alpha
-            drawGrid(); // Grid is drawn before other elements, its alpha is handled by strokeStyle
+            drawGrid(); 
 
             tables.forEach(table => {
                 drawRect(table.x, table.y, table.width, table.height, table.color, lightLevel);
@@ -1029,7 +1106,7 @@
                         const dist = distance(player, s); const maxRadarDist = TILE_SIZE * 40;
                         if (dist < maxRadarDist) {
                             const radarIntensity = Math.max(0.2, 1 - dist / maxRadarDist);
-                            const pulseSize = (4 + Math.sin(gameTime * 8 + s.id) * 2) * radarIntensity;
+                            const pulseSize = (4 + Math.sin(gameTime * 8 + s.id) * 2) * radarIntensity; // gameTime here is fine for visual pulse
                             drawCircle(s.x + s.width / 2, s.y + s.height / 2, pulseSize, `rgba(255, 100, 100, ${radarIntensity * 0.7})`, lightLevel);
                         }
                     }
@@ -1043,9 +1120,9 @@
             drawRect(player.x, player.y, player.width, player.height, player.color, lightLevel);
             drawText(player.name, player.x + player.width / 2, player.y - 6, '#fff', 8, 'center', lightLevel);
             if (player.attractionField) {
-                const oldGlobalAlpha = ctx.globalAlpha; // Need to manage alpha carefully with stroke
-                ctx.globalAlpha = lightLevel;
-                const pulse = Math.sin(gameTime * 6) * 0.1;
+                const oldGlobalAlpha = ctx.globalAlpha; 
+                ctx.globalAlpha = lightLevel * oldGlobalAlpha; // Modulate with existing light level
+                const pulse = Math.sin(Date.now() * 0.006) * 0.1; // Use Date.now() for continuous pulse
                 ctx.strokeStyle = `rgba(255, 0, 204, ${0.3 + pulse * 0.2})`; ctx.lineWidth = 2 + pulse;
                 ctx.beginPath(); ctx.arc(player.x + player.width/2, player.y + player.height/2, player.attractionRadius * (0.9 + pulse * 0.05) , 0, Math.PI * 2); ctx.stroke();
                 ctx.globalAlpha = oldGlobalAlpha;
@@ -1079,26 +1156,39 @@
             const studentsTextY = abilityBarY + barHeight + padding;
             drawText(`Students: ${player.captureCount}/${students.length}`, padding, studentsTextY, '#fff', fontSizeMedium, 'left');
 
-            const gameTimeTextY = studentsTextY + fontSizeMedium + padding / 2;
-            const minutes = Math.floor(gameTime / 60); const seconds = Math.floor(gameTime % 60);
-            drawText(`Time: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`, padding, gameTimeTextY, '#fff', fontSizeMedium, 'left');
+            // Game Time Display (06:30 to 13:00)
+            const currentTotalGameHours = GAME_DAY_START_HOUR + (environment.timeOfDay * GAME_DAY_DURATION_HOURS);
+            const displayHour = Math.floor(currentTotalGameHours);
+            const displayMinute = Math.floor((currentTotalGameHours % 1) * 60);
+            const gameTimeDisplayY = studentsTextY + fontSizeMedium + padding / 2;
+            drawText(`Time: ${displayHour < 10 ? '0' : ''}${displayHour}:${displayMinute < 10 ? '0' : ''}${displayMinute}`, padding, gameTimeDisplayY, '#fff', fontSizeMedium, 'left');
 
-            drawText(`Day Time: ${Math.floor(environment.timeOfDay*24)}:00`, canvas.width - padding, padding + fontSizeSmall, '#fff', fontSizeSmall, 'right');
+            // Current Day Display
+            drawText(`Day: ${currentDay}`, canvas.width - padding, padding + fontSizeSmall, '#fff', fontSizeSmall, 'right');
             
-            if (gameTime < 10 && gameStates.currentState === gameStates.GAME) {
+            if (Date.now() % 2000 < 1000 && gameTime < 10 && gameStates.currentState === gameStates.GAME && !gameStates.isTransitioningDay()) { // Blinking hint
                 const hintText = isTouchDevice ? 'Joystick:Move, Buttons:Actions' : 'WASD/Arrows:Move, SHIFT:Sprint, SPACE:Ability, Q:Cycle, P:Pause';
                 drawText(hintText, canvas.width / 2, canvas.height - padding - 5, '#ccc', fontSizeSmall);
             }
 
-            if (isTouchDevice) { // Draw mobile controls if on touch device
+            if (isTouchDevice) { 
                 drawMobileControls();
             }
         }
 
-        function draw() {
-            if (gameStates.currentState === gameStates.GAME) drawGame();
-            else gameStates.draw(); 
+        function draw() { // Main draw function
+            if (gameStates.currentState === gameStates.GAME || gameStates.currentState === gameStates.PAUSED || gameStates.isTransitioningDay()) {
+                 drawGame();
+            } else {
+                 gameStates.draw(); 
+            }
+            // Draw fade overlay on top of everything if active
+            if (fadeOverlayAlpha > 0) {
+                ctx.fillStyle = `rgba(0, 0, 0, ${fadeOverlayAlpha})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
         }
+
 
         function gameLoop() { 
             update(); 
@@ -1111,6 +1201,8 @@
 
         function handleKeyDown(e) {
             const key = e.key.toLowerCase();
+            if (gameStates.isTransitioningDay()) return; // No input during day transition
+
             if (gameStates.currentState !== gameStates.GAME) { 
                 gameStates.handleKeyPress(e.key); 
                 return; 
@@ -1129,6 +1221,7 @@
                     if (gameStates.currentState === gameStates.GAME) { 
                         gamePaused = !gamePaused; 
                         if (gamePaused) gameStates.currentState = gameStates.PAUSED;
+                        // else gameStates.currentState = gameStates.GAME; // Resuming is handled by pause menu
                     } 
                     break;
                 case 'escape': 
@@ -1137,10 +1230,11 @@
                     } 
                     break;
             }
-            if (gameStates.currentState === gameStates.GAME && !isTouchDevice) updatePlayerVelocity(); // Keyboard updates velocity
+            if (gameStates.currentState === gameStates.GAME && !isTouchDevice) updatePlayerVelocity(); 
         }
         function handleKeyUp(e) {
             const key = e.key.toLowerCase();
+            if (gameStates.isTransitioningDay()) return; 
             if (gameStates.currentState !== gameStates.GAME) return; 
             switch (key) {
                 case 'arrowup': case 'w': keys.up = false; break;
@@ -1153,8 +1247,8 @@
             }
             if (gameStates.currentState === gameStates.GAME && !isTouchDevice) updatePlayerVelocity();
         }
-        function updatePlayerVelocity() { // Used by keyboard
-            if (isTouchDevice && joystick.active) return; // Joystick has priority on touch devices
+        function updatePlayerVelocity() { 
+            if (isTouchDevice && joystick.active) return; 
 
             player.dx = 0; player.dy = 0;
             if (keys.up) player.dy = -1; if (keys.down) player.dy = 1;
@@ -1167,7 +1261,7 @@
         document.addEventListener('keydown', handleKeyDown); 
         document.addEventListener('keyup', handleKeyUp);
 
-        // --- Mobile Touch Controls ---
+        // --- Mobile Touch Controls & Fullscreen ---
         const joystick = {
             x: 0, y: 0, radius: 0, stickX: 0, stickY: 0, stickRadius: 0,
             active: false, touchId: null, maxDisplacement: 0, visible: false
@@ -1185,49 +1279,46 @@
             mobileButtons.activate.visible = true;
             mobileButtons.cycle.visible = true;
 
-            // Joystick (bottom-left)
-            joystick.radius = Math.min(canvas.width, canvas.height) * 0.12; // Base size
-            joystick.x = joystick.radius * 1.5;
-            joystick.y = canvas.height - joystick.radius * 1.5;
-            joystick.stickRadius = joystick.radius * 0.5;
+            const basePadding = isFullscreenActive ? 0 : 20; // Padding from screen edge if not fullscreen
+
+            joystick.radius = Math.min(canvas.width, canvas.height) * 0.11; 
+            joystick.x = joystick.radius * 1.3 + basePadding;
+            joystick.y = canvas.height - joystick.radius * 1.3 - basePadding;
+            joystick.stickRadius = joystick.radius * 0.45;
             joystick.stickX = joystick.x;
             joystick.stickY = joystick.y;
             joystick.maxDisplacement = joystick.radius - joystick.stickRadius;
 
-            // Buttons (bottom-right)
-            const buttonHeight = Math.min(canvas.width, canvas.height) * 0.08;
-            const buttonWidth = buttonHeight * 1.8;
-            const buttonMargin = buttonHeight * 0.3;
+            const buttonHeight = Math.min(canvas.width, canvas.height) * 0.07;
+            const buttonWidth = buttonHeight * 1.7;
+            const buttonMargin = buttonHeight * 0.25;
 
             mobileButtons.sprint.width = buttonWidth;
             mobileButtons.sprint.height = buttonHeight;
-            mobileButtons.sprint.x = canvas.width - buttonWidth - buttonMargin * 2;
-            mobileButtons.sprint.y = canvas.height - buttonHeight - buttonMargin;
+            mobileButtons.sprint.x = canvas.width - buttonWidth - buttonMargin - basePadding;
+            mobileButtons.sprint.y = canvas.height - buttonHeight - buttonMargin - basePadding;
             
             mobileButtons.activate.width = buttonWidth;
             mobileButtons.activate.height = buttonHeight;
-            mobileButtons.activate.x = canvas.width - buttonWidth - buttonMargin * 2;
+            mobileButtons.activate.x = canvas.width - buttonWidth - buttonMargin - basePadding;
             mobileButtons.activate.y = mobileButtons.sprint.y - buttonHeight - buttonMargin;
 
             mobileButtons.cycle.width = buttonWidth;
             mobileButtons.cycle.height = buttonHeight;
-            mobileButtons.cycle.x = canvas.width - buttonWidth - buttonMargin * 2;
+            mobileButtons.cycle.x = canvas.width - buttonWidth - buttonMargin - basePadding;
             mobileButtons.cycle.y = mobileButtons.activate.y - buttonHeight - buttonMargin;
         }
 
         function drawMobileControls() {
-            if (!isTouchDevice || !joystick.visible) return;
+            if (!isTouchDevice || !joystick.visible || gameStates.isTransitioningDay()) return;
 
-            // Draw Joystick Base
             drawCircle(joystick.x, joystick.y, joystick.radius, 'rgba(80, 80, 80, 0.4)');
-            // Draw Joystick Stick
             drawCircle(joystick.stickX, joystick.stickY, joystick.stickRadius, joystick.active ? 'rgba(180, 180, 180, 0.8)' : 'rgba(120, 120, 120, 0.6)');
 
-            // Draw Buttons
             Object.values(mobileButtons).forEach(button => {
                 if (button.visible) {
                     drawRect(button.x, button.y, button.width, button.height, button.pressed ? 'rgba(100, 100, 100, 0.8)' : 'rgba(60, 60, 60, 0.6)');
-                    drawText(button.text, button.x + button.width / 2, button.y + button.height / 2 + 5, '#fff', Math.min(12, button.height * 0.3), 'center');
+                    drawText(button.text, button.x + button.width / 2, button.y + button.height / 2 + button.height*0.1, '#fff', Math.min(12, button.height * 0.3), 'center');
                 }
             });
         }
@@ -1242,16 +1333,63 @@
             return touchX >= rect.x && touchX <= rect.x + rect.width &&
                    touchY >= rect.y && touchY <= rect.y + rect.height;
         }
+        
+        function requestNativeFullScreen() {
+            if (canvas.requestFullscreen) {
+                canvas.requestFullscreen();
+            } else if (canvas.webkitRequestFullscreen) { /* Safari */
+                canvas.webkitRequestFullscreen();
+            } else if (canvas.msRequestFullscreen) { /* IE11 */
+                canvas.msRequestFullscreen();
+            }
+        }
+
+        function exitNativeFullScreen() {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) { /* Safari */
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) { /* IE11 */
+                document.msExitFullscreen();
+            }
+        }
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
+                requestNativeFullScreen();
+            } else {
+                exitNativeFullScreen();
+            }
+        }
+
+        function onFullScreenChange() {
+            isFullscreenActive = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+            screenEdgePadding = (isTouchDevice && !isFullscreenActive) ? 20 : 0;
+            resizeCanvas(); // This will call setupMobileControls
+        }
+
+        document.addEventListener('fullscreenchange', onFullScreenChange);
+        document.addEventListener('webkitfullscreenchange', onFullScreenChange); // Safari
+        document.addEventListener('msfullscreenchange', onFullScreenChange);     // IE
 
         canvas.addEventListener('touchstart', function(e) {
             if (!isTouchDevice) return;
             e.preventDefault(); 
             const rect = canvas.getBoundingClientRect();
 
+            if (gameStates.isTransitioningDay()) return;
+
             if (gameStates.currentState !== gameStates.GAME) {
-                const touch = e.changedTouches[0]; // Only need one touch for menu navigation
+                const touch = e.changedTouches[0]; 
                 const touchX = touch.clientX - rect.left;
                 const touchY = touch.clientY - rect.top;
+
+                if (gameStates.currentState === gameStates.MENU && gameStates.startScreen.fullscreenButtonRect && 
+                    isTouchInRect(touchX, touchY, gameStates.startScreen.fullscreenButtonRect)) {
+                    toggleFullScreen();
+                    return;
+                }
+
                 if (gameStates.currentState === gameStates.MENU || gameStates.currentState === gameStates.PAUSED) {
                     let menuSystem = (gameStates.currentState === gameStates.MENU) ? gameStates.startScreen : gameStates.pauseMenu;
                     const optionHeight = Math.min(50, canvas.height / 10); 
@@ -1277,11 +1415,9 @@
                 const touchX = touch.clientX - rect.left;
                 const touchY = touch.clientY - rect.top;
 
-                // Joystick activation
-                if (!joystick.active && joystick.visible && isTouchInCircle(touchX, touchY, joystick.x, joystick.y, joystick.radius * 1.2)) { // Slightly larger activation area
+                if (!joystick.active && joystick.visible && isTouchInCircle(touchX, touchY, joystick.x, joystick.y, joystick.radius * 1.3)) { // Larger activation for joystick
                     joystick.active = true;
                     joystick.touchId = touch.identifier;
-                    // Update stick position immediately
                     const dxJoy = touchX - joystick.x;
                     const dyJoy = touchY - joystick.y;
                     const dist = Math.sqrt(dxJoy * dxJoy + dyJoy * dyJoy);
@@ -1296,21 +1432,18 @@
                     player.dy = (joystick.stickY - joystick.y) / joystick.maxDisplacement;
                     continue; 
                 }
-                // Sprint Button
                 if (mobileButtons.sprint.visible && isTouchInRect(touchX, touchY, mobileButtons.sprint)) {
                     keys.shift = true; player.isSprinting = true;
                     mobileButtons.sprint.pressed = true;
                     mobileButtons.sprint.touchId = touch.identifier;
                     continue;
                 }
-                // Activate Ability Button
                 if (mobileButtons.activate.visible && isTouchInRect(touchX, touchY, mobileButtons.activate)) {
                     specialAbilities.activateAbility();
                     mobileButtons.activate.pressed = true;
                     setTimeout(() => { mobileButtons.activate.pressed = false; }, 150);
                     continue;
                 }
-                // Cycle Ability Button
                 if (mobileButtons.cycle.visible && isTouchInRect(touchX, touchY, mobileButtons.cycle)) {
                     specialAbilities.cycleAbility();
                     mobileButtons.cycle.pressed = true;
@@ -1321,7 +1454,7 @@
         }, { passive: false });
 
         canvas.addEventListener('touchmove', function(e) {
-            if (!isTouchDevice || gameStates.currentState !== gameStates.GAME || gamePaused) return; 
+            if (!isTouchDevice || gameStates.currentState !== gameStates.GAME || gamePaused || gameStates.isTransitioningDay()) return; 
             e.preventDefault();
             const rect = canvas.getBoundingClientRect();
 
@@ -1334,6 +1467,14 @@
                     let dyJoy = touchY - joystick.y;
                     const dist = Math.sqrt(dxJoy * dxJoy + dyJoy * dyJoy);
 
+                    if (dist === 0) { // Avoid NaN if touch is exactly on joystick center
+                        player.dx = 0;
+                        player.dy = 0;
+                        joystick.stickX = joystick.x;
+                        joystick.stickY = joystick.y;
+                        return;
+                    }
+
                     if (dist > joystick.maxDisplacement) {
                         dxJoy = (dxJoy / dist) * joystick.maxDisplacement;
                         dyJoy = (dyJoy / dist) * joystick.maxDisplacement;
@@ -1342,10 +1483,10 @@
                     joystick.stickY = joystick.y + dyJoy;
                     player.dx = dxJoy / joystick.maxDisplacement;
                     player.dy = dyJoy / joystick.maxDisplacement;
-                    // Normalize if needed (already done in updatePlayerVelocity if that was used, but direct set is fine)
-                     if (player.dx !== 0 && player.dy !== 0) {
+                    
+                     if (player.dx !== 0 || player.dy !== 0) { // Normalize if magnitude > 1
                         const length = Math.sqrt(player.dx * player.dx + player.dy * player.dy);
-                        if (length > 1) { // Ensure it's not over 1 after division if maxDisplacement is small
+                        if (length > 1) { 
                              player.dx /= length; player.dy /= length;
                         }
                     }
@@ -1354,11 +1495,10 @@
         }, { passive: false });
 
         canvas.addEventListener('touchend', function(e) {
-            if (!isTouchDevice || gameStates.currentState !== gameStates.GAME) return;
-            e.preventDefault();
+            if (!isTouchDevice || gameStates.currentState !== gameStates.GAME || gameStates.isTransitioningDay()) return;
+            // e.preventDefault(); // Not always needed on touchend, can sometimes interfere
              for (let i = 0; i < e.changedTouches.length; i++) {
                 const touch = e.changedTouches[i];
-                // Joystick deactivation
                 if (joystick.active && touch.identifier === joystick.touchId) {
                     joystick.active = false;
                     joystick.touchId = null;
@@ -1367,7 +1507,6 @@
                     player.dx = 0;
                     player.dy = 0;
                 }
-                // Sprint button release
                 if (mobileButtons.sprint.touchId === touch.identifier) {
                     keys.shift = false; player.isSprinting = false;
                     mobileButtons.sprint.pressed = false;
@@ -1384,8 +1523,9 @@
                 canvas.height = window.innerHeight;
                 camera.width = canvas.width;
                 camera.height = canvas.height;
-                if (isTouchDevice) setupMobileControls(); // Reposition mobile controls on resize
-                if(gameStates.currentState !== gameStates.GAME) gameStates.draw();
+                screenEdgePadding = (isTouchDevice && !isFullscreenActive) ? Math.min(20, canvas.width * 0.03, canvas.height * 0.03) : 0;
+                if (isTouchDevice) setupMobileControls(); 
+                if(gameStates.currentState !== gameStates.GAME || gameStates.isTransitioningDay()) gameStates.draw(); // Redraw non-active game states
             };
             window.addEventListener('resize', resizeCanvas); 
             resizeCanvas(); 
