@@ -55,12 +55,12 @@
         // --- Canvas and Context ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const gameUIMessage = document.getElementById('gameUI'); // Renamed for clarity
+        const gameUIMessage = document.getElementById('gameUI'); 
 
         // --- Mobile Detection & Fullscreen ---
         const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0);
         let isFullscreenActive = false;
-        let screenEdgePadding = 0; // Padding for mobile controls if not fullscreen
+        let screenEdgePadding = 0; 
 
         // --- Game Settings ---
         const TILE_SIZE = 20; 
@@ -69,15 +69,15 @@
         const DETECTION_RADIUS = TILE_SIZE * 8;
         const ESCAPE_RADIUS = TILE_SIZE * 5;
         const CAPTURE_RADIUS = TILE_SIZE * 0.8;
-        let gameTime = 0; // Real-world seconds elapsed in current game day for internal logic
+        let gameTime = 0; 
         let gamePaused = false;
         let currentDay = 1;
 
         // --- Day Cycle Variables ---
-        const GAME_DAY_START_HOUR = 6.5; // 6:30 AM
-        const GAME_DAY_END_HOUR = 13.0;  // 1:00 PM
-        const GAME_DAY_DURATION_HOURS = GAME_DAY_END_HOUR - GAME_DAY_START_HOUR; // 6.5 hours
-        const FADE_SPEED = 0.02; // Speed of fade transition
+        const GAME_DAY_START_HOUR = 6.5; 
+        const GAME_DAY_END_HOUR = 13.0;  
+        const GAME_DAY_DURATION_HOURS = GAME_DAY_END_HOUR - GAME_DAY_START_HOUR; 
+        const FADE_SPEED = 0.02; 
         let fadeOverlayAlpha = 0;
 
 
@@ -95,16 +95,16 @@
             x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2,
             width: TILE_SIZE, height: TILE_SIZE,
             color: '#007bff', 
-            baseSpeed: 25, // Adjusted for more balanced gameplay
+            baseSpeed: 25, 
             currentSpeed: 25,
-            sprintMultiplier: 1.8, // Adjusted sprint factor
+            sprintMultiplier: 1.8, 
             targetX: WORLD_WIDTH / 2, targetY: WORLD_HEIGHT / 2,
             dx: 0, dy: 0,
             movementSmoothing: 0.2,
             stamina: 100, maxStamina: 100,
             staminaRegenRate: 0.5, staminaDepletionRate: 0.8,
             isSprinting: false, 
-            captureCount: 0,
+            captureCount: 0, 
             radarActive: false,
             attractionField: false, attractionRadius: 0, attractionForce: 0
         };
@@ -118,16 +118,20 @@
         
         const tables = [
             {
+                id: "kremer_table", 
                 name: "Class Table",
                 x: TILE_SIZE * 5, y: WORLD_HEIGHT - TILE_SIZE * 15,
                 width: TILE_SIZE * 10, height: TILE_SIZE * 4,
-                color: '#6c757d' 
+                color: '#6c757d',
+                isBench: false
             },
             {
+                id: "ziv_table", 
                 name: "Ziv's Table",
                 x: ziv.x - TILE_SIZE * 4, y: ziv.y + TILE_SIZE * 2,
                 width: TILE_SIZE * 8, height: TILE_SIZE * 3,
-                color: '#5c656d' 
+                color: '#5c656d',
+                isBench: false
             }
         ];
 
@@ -136,40 +140,88 @@
         }
         
         const tableColors = ['#8B4513', '#A0522D', '#803515', '#975429'];
+        const benchColor = '#A0522D'; 
+        const benchThickness = TILE_SIZE * 0.75;
+        const benchOffset = TILE_SIZE * 0.2;
 
         for (let i = 0; i < 15; i++) {
-            const width = getRandomInt(3, 8) * TILE_SIZE;
-            const height = getRandomInt(2, 5) * TILE_SIZE;
-            let x, y, validPosition;
+            const tableWidth = getRandomInt(3, 8) * TILE_SIZE;
+            const tableHeight = getRandomInt(2, 5) * TILE_SIZE;
+            let tableX, tableY, validPosition;
             do {
                 validPosition = true;
-                x = getRandomInt(TILE_SIZE * 5, WORLD_WIDTH - width - TILE_SIZE * 5);
-                y = getRandomInt(TILE_SIZE * 5, WORLD_HEIGHT - height - TILE_SIZE * 5);
-                for (const table of tables) {
-                    const distanceVal = Math.sqrt(
-                        Math.pow((x + width/2) - (table.x + table.width/2), 2) +
-                        Math.pow((y + height/2) - (table.y + table.height/2), 2)
-                    );
-                    if (distanceVal < TILE_SIZE * 15) { 
+                tableX = getRandomInt(TILE_SIZE * 5, WORLD_WIDTH - tableWidth - TILE_SIZE * 5);
+                tableY = getRandomInt(TILE_SIZE * 5, WORLD_HEIGHT - tableHeight - TILE_SIZE * 5);
+                for (const existingTable of tables) {
+                    const combinedHalfWidths = (tableWidth + existingTable.width) / 2 + TILE_SIZE * 2; 
+                    const combinedHalfHeights = (tableHeight + existingTable.height) / 2 + TILE_SIZE * 2;
+                    if (Math.abs((tableX + tableWidth/2) - (existingTable.x + existingTable.width/2)) < combinedHalfWidths &&
+                        Math.abs((tableY + tableHeight/2) - (existingTable.y + existingTable.height/2)) < combinedHalfHeights) {
                         validPosition = false;
                         break;
                     }
                 }
             } while (!validPosition);
-            tables.push({
+            
+            const mainTable = {
+                id: `dining_table_${i}`,
                 name: "Dining Table", 
-                x, y, width, height,
-                color: tableColors[getRandomInt(0, tableColors.length -1)] 
-            });
+                x: tableX, y: tableY, width: tableWidth, height: tableHeight,
+                color: tableColors[getRandomInt(0, tableColors.length -1)],
+                isBench: false // Main table part is not a bench for collision skipping
+            };
+            tables.push(mainTable);
+
+            // Add benches as separate collision objects, MARKED as benches
+            if (tableWidth > tableHeight) { 
+                tables.push({
+                    id: `dining_table_${i}_bench_top`, name: "Bench", // Name for drawing
+                    x: tableX, y: tableY - benchThickness - benchOffset,
+                    width: tableWidth, height: benchThickness,
+                    color: benchColor, isBench: true // This will be skipped in collision checks
+                });
+                tables.push({
+                    id: `dining_table_${i}_bench_bottom`, name: "Bench",
+                    x: tableX, y: tableY + tableHeight + benchOffset,
+                    width: tableWidth, height: benchThickness,
+                    color: benchColor, isBench: true
+                });
+            } else { 
+                tables.push({
+                    id: `dining_table_${i}_bench_left`, name: "Bench",
+                    x: tableX - benchThickness - benchOffset, y: tableY,
+                    width: benchThickness, height: tableHeight,
+                    color: benchColor, isBench: true
+                });
+                tables.push({
+                    id: `dining_table_${i}_bench_right`, name: "Bench",
+                    x: tableX + tableWidth + benchOffset, y: tableY,
+                    width: benchThickness, height: tableHeight,
+                    color: benchColor, isBench: true
+                });
+            }
         }
 
-        const KREMER_TABLE_INDEX = 0;
-        const studentNames = [
-            "Adi", "Bar", "Chen", "Dana", "Eli", "Gali", "Hila", "Itai",
-            "Keren", "Lior", "Maya", "Noa", "Omer", "Rotem", "Shira"
+
+        const KREMER_TABLE_INDEX = 0; 
+        const ZIV_TABLE_INDEX = 1;    
+
+        const kremerStudentNames = [
+            "Itamar", "Noam", "Moshe", "Yossi", "Shachar", "Oryan", "Naor", "Adiel", "Elisha", "Benjamin",
+            "Avi", "Ron", "Gal", "Liran", "Yaniv" // Added 5 more
         ];
-        const students = [];
-        const UNIFORM_STUDENT_COLOR = '#28a745';
+        const zivStudentNames = [
+            "Garashi", "Shua", "Rafi", "Oral", "Yair", "Ehuvia", 
+            "Eliel", "Elad", "Dvir", "Arbel", "Hagi", "Nachshon"
+        ];
+
+
+        const students = []; 
+        const zivStudents = []; 
+
+        const KREMER_STUDENT_COLOR = '#28a745'; 
+        const ZIV_STUDENT_COLOR = '#FFA500';   
+
 
         const powerUps = [];
         const powerUpTypes = [
@@ -177,7 +229,7 @@
                 name: "Speed Boost", color: "#ffcc00",
                 effect: () => {
                     const originalBaseSpeed = player.baseSpeed; 
-                    player.baseSpeed = 6; // Temporarily set a higher base speed
+                    player.baseSpeed *= 1.5; 
                     showGameMessage("Speed Boost Active!");
                     setTimeout(() => {
                         player.baseSpeed = originalBaseSpeed; 
@@ -215,46 +267,35 @@
         ];
 
         const environment = {
-            // timeOfDay: 0 to 1 represents the progression through the game day (6:30 to 13:00)
             timeOfDay: 0, 
-            dayLengthInSeconds: 120, // Real-world seconds for one game day (6.5 game hours)
+            dayLengthInSeconds: 60, 
             updateEnvironment: function() {
                 if (gamePaused || gameStates.isTransitioningDay()) return;
-                
-                // Increment gameTime (real-world seconds tracker for the current day's progression)
-                gameTime += 1/60; // Assuming 60 FPS
-
-                // Update timeOfDay based on gameTime
+                gameTime += 1/60; 
                 this.timeOfDay = Math.min(1, gameTime / this.dayLengthInSeconds);
-
                 if (this.timeOfDay >= 1 && !gameStates.isTransitioningDay()) {
                     gameStates.startDayTransition();
                 }
             },
             getBackgroundColor: function() {
-                // Normalize timeOfDay to a 0-1 range representing dawn to noon for color calculation
-                // Since our game day is short (6:30 to 13:00), we can map it to a brighter part of a typical day cycle.
-                // Let's use a simpler progression: starts slightly dim, brightens, then slightly dims.
                 let skyColor;
-                const progress = this.timeOfDay; // 0 to 1
-
-                if (progress < 0.1) { // Early morning (6:30 - ~7:00)
+                const progress = this.timeOfDay;
+                if (progress < 0.1) { 
                     const t = progress / 0.1;
-                    skyColor = `rgb(${Math.floor(80 + t * 50)}, ${Math.floor(100 + t * 80)}, ${Math.floor(150 + t * 85)})`; // Darker blue to lighter
-                } else if (progress < 0.8) { // Main part of the morning/midday ( ~7:00 - ~12:00)
-                     skyColor = '#87CEEB'; // Sky blue
-                } else { // Approaching 13:00
+                    skyColor = `rgb(${Math.floor(80 + t * 50)}, ${Math.floor(100 + t * 80)}, ${Math.floor(150 + t * 85)})`;
+                } else if (progress < 0.8) { 
+                     skyColor = '#87CEEB'; 
+                } else { 
                     const t = (progress - 0.8) / 0.2;
-                    skyColor = `rgb(${Math.floor(135 - t * 30)}, ${Math.floor(206 - t * 20)}, ${Math.floor(235 - t * 10)})`; // Sky blue slightly warmer/dimmer
+                    skyColor = `rgb(${Math.floor(135 - t * 30)}, ${Math.floor(206 - t * 20)}, ${Math.floor(235 - t * 10)})`;
                 }
                 return skyColor;
             },
             getLightLevel: function() {
-                // Light level peaks mid-day
-                const progress = this.timeOfDay; // 0 to 1
-                if (progress < 0.1) return 0.8 + progress * 2; // 0.8 to 1.0 (dawn)
-                else if (progress < 0.8) return 1.0;         // Full brightness
-                else return 1.0 - (progress - 0.8) * 1;      // 1.0 to 0.8 (approaching 13:00)
+                const progress = this.timeOfDay; 
+                if (progress < 0.1) return 0.8 + progress * 2; 
+                else if (progress < 0.8) return 1.0;         
+                else return 1.0 - (progress - 0.8) * 1;      
             }
         };
 
@@ -302,9 +343,9 @@
                     }
                 },
                 {
-                    name: "Student Radar", description: "Reveal the positions of all students.",
+                    name: "Student Radar", description: "Reveal the positions of Kremer's students.",
                     activate: function() {
-                        player.radarActive = true;
+                        player.radarActive = true; 
                         showGameMessage("Student Radar active!");
                         setTimeout(() => {
                             player.radarActive = false;
@@ -350,7 +391,7 @@
                     { text: "How to Play", action: () => gameStates.showInstructionsScreen() }
                 ],
                 selectedOption: 0,
-                fullscreenButtonRect: null, // For touch detection
+                fullscreenButtonRect: null, 
                 draw: function() {
                     ctx.fillStyle = '#2c2c2c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
                     ctx.fillStyle = '#fff'; 
@@ -409,7 +450,9 @@
                         "  'USE': Activate Ability",
                         "  'SWAP': Cycle Ability",
                         "",
-                        "Goal: Catch all students before 13:00!",
+                        "Goal: Catch all Kremer's students before 13:00!",
+                        "Students get bored at their desks and might leave.",
+                        "Catching them repeatedly makes them mad!",
                         "A new day starts if time runs out."
                     ];
                     const lineHeight = Math.min(22, canvas.height / 22);
@@ -429,7 +472,7 @@
             pauseMenu: { 
                  options: [
                     { text: "Resume", action: () => { gameStates.currentState = gameStates.GAME; gamePaused = false; } },
-                    { text: "Restart Day", action: () => gameStates.restartCurrentDay() }, // Changed from Restart Game
+                    { text: "Restart Day", action: () => gameStates.restartCurrentDay() }, 
                     { text: "Main Menu", action: () => { gameStates.currentState = gameStates.MENU; gamePaused = false; gameTime = 0; currentDay = 1;} }
                 ],
                 selectedOption: 0,
@@ -455,32 +498,11 @@
                     }
                 }
             },
-            gameOverScreen: { // This state might be less relevant if day cycle handles time up
-                draw: function() {
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    ctx.fillStyle = '#ff5555'; 
-                    ctx.font = `${Math.min(32, canvas.width / 18, canvas.height / 15)}px "Press Start 2P"`; 
-                    ctx.textAlign = 'center';
-                    ctx.fillText("ALL STUDENTS CAUGHT!", canvas.width / 2, canvas.height / 3); // Changed message
-                    ctx.fillStyle = '#fff'; 
-                    ctx.font = `${Math.min(20, canvas.width / 25, canvas.height / 20)}px "Press Start 2P"`;
-                    ctx.fillText(`Total Days: ${currentDay}`, canvas.width / 2, canvas.height / 2);
-                     const totalGameTimeSeconds = (currentDay -1) * environment.dayLengthInSeconds + gameTime;
-                    const minutes = Math.floor(totalGameTimeSeconds / 60); 
-                    const seconds = Math.floor(totalGameTimeSeconds % 60);
-                    ctx.fillText(`Total Play Time: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`, canvas.width / 2, canvas.height / 2 + Math.min(40, canvas.height/12));
-                    ctx.fillStyle = '#ffcc00'; 
-                    ctx.font = `${Math.min(16, canvas.width / 30, canvas.height / 25)}px "Press Start 2P"`;
-                    ctx.fillText("Tap or Press ENTER for Main Menu", canvas.width / 2, canvas.height / 2 + Math.min(100, canvas.height/6));
-                },
-                handleInput: function(key) {
-                    switch(key.toLowerCase()) {
-                        case 'enter': case ' ': gameStates.currentState = gameStates.MENU; gameTime = 0; currentDay = 1; break;
-                        case 'escape': gameStates.currentState = gameStates.MENU; gameTime = 0; currentDay = 1; break;
-                    }
-                }
+            gameOverScreen: { 
+                draw: function() { /* Not used directly, VICTORY is the end state */ },
+                handleInput: function(key) { /* ... */ }
             },
-            victoryScreen: { // This is now the true game over / win screen
+            victoryScreen: { 
                 draw: function() {
                     ctx.fillStyle = 'rgba(0, 0, 100, 0.3)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
                     ctx.fillStyle = '#fff';
@@ -496,7 +518,7 @@
                     ctx.fillText("VICTORY!", canvas.width / 2, canvas.height / 3);
                     ctx.shadowBlur = 0; ctx.fillStyle = '#fff'; 
                     ctx.font = `${Math.min(20, canvas.width / 25, canvas.height / 20)}px "Press Start 2P"`;
-                    ctx.fillText(`All students captured!`, canvas.width / 2, canvas.height / 2 - Math.min(20, canvas.height/20) );
+                    ctx.fillText(`All of Kremer's students captured!`, canvas.width / 2, canvas.height / 2 - Math.min(20, canvas.height/20) );
                     ctx.fillText(`It took you ${currentDay} day(s).`, canvas.width / 2, canvas.height / 2 + Math.min(20, canvas.height/20));
                     ctx.fillStyle = '#ffcc00'; 
                     ctx.font = `${Math.min(16, canvas.width / 30, canvas.height / 25)}px "Press Start 2P"`;
@@ -515,47 +537,75 @@
             startDayTransition: function() {
                 if (this.isTransitioningDay()) return;
                 this.currentState = this.DAY_TRANSITION_OUT;
-                gamePaused = true; // Pause most game logic during transition
-                showGameMessage("End of the day...", 5000); // Show for longer
+                gamePaused = true; 
+                showGameMessage("End of the day...", 3000); 
             },
             resetDay: function() {
-                gameTime = 0; // Reset real-world seconds tracker for the day
+                gameTime = 0; 
                 environment.timeOfDay = 0;
                 player.x = tables[KREMER_TABLE_INDEX].x + tables[KREMER_TABLE_INDEX].width / 2;
                 player.y = tables[KREMER_TABLE_INDEX].y + tables[KREMER_TABLE_INDEX].height + TILE_SIZE * 2;
                 player.targetX = player.x; player.targetY = player.y;
-                player.stamina = player.maxStamina; // Refill stamina for new day
-                // Students are reset (they run away again)
-                // Only non-caught students are re-initialized to new positions.
-                // Caught students should remain at their seats.
-                const caughtStudentNames = students.filter(s => s.isCaught).map(s => s.name);
-                initializeStudents(); // This will re-scatter all students by default.
-                // Re-catch students who were already caught to place them back at seats correctly.
-                students.forEach(s => {
-                    if (caughtStudentNames.includes(s.name)) {
+                player.stamina = player.maxStamina; 
+                
+                const previouslyCaughtKremerStudentNames = students.filter(s => s.isCaught).map(s => s.name);
+                
+                initializeAllStudents(); 
+                
+                students.forEach(s => { 
+                    s.timesCaughtThisDay = 0; 
+                    if (previouslyCaughtKremerStudentNames.includes(s.name)) {
                         s.isCaught = true;
-                        // Snap them to seat for simplicity or let them walk back (current logic)
-                        s.x = s.seatX;
+                        s.isAtSeat = true;
+                        s.x = s.seatX; 
                         s.y = s.seatY;
+                        s.boredom = 0; 
+                    } else {
+                        s.isCaught = false;
+                        s.isAtSeat = false;
                     }
                 });
+                player.captureCount = students.filter(s => s.isCaught && s.isAtSeat).length;
+
 
                 spawnPowerUps();
                 updateCamera();
             },
-            startGame: function() { // Starts game from Day 1
+            startGame: function() { 
                 currentDay = 1;
-                player.captureCount = 0; // Reset total captures
-                this.resetDay(); // Reset day specific things
+                player.captureCount = 0; 
+                initializeAllStudents(); 
+                this.resetDay(); 
                 this.currentState = this.GAME; 
                 gamePaused = false;
-                fadeOverlayAlpha = 0; // Ensure no fade overlay from previous game
+                fadeOverlayAlpha = 0; 
                 specialAbilities.cooldown = 0; specialAbilities.active = false; specialAbilities.selectedAbility = 0;
                 showGameMessage(`Day ${currentDay}: Catch the students!`);
                 if (isTouchDevice) setupMobileControls();
             },
-            restartCurrentDay: function() { // Restarts the current day
-                this.resetDay();
+            restartCurrentDay: function() { 
+                const currentCaughtCount = player.captureCount; 
+                const caughtNames = students.filter(s => s.isCaught).map(s => s.name);
+
+                this.resetDay(); 
+                
+                let newCaptureCount = 0;
+                students.forEach(s => {
+                    if (caughtNames.includes(s.name)) {
+                        s.isCaught = true;
+                        s.isAtSeat = true;
+                        s.x = s.seatX;
+                        s.y = s.seatY;
+                        s.boredom = 0;
+                        s.happiness = 50; 
+                        s.madness = 0;
+                        s.timesCaughtThisDay = 0; 
+                        newCaptureCount++;
+                    }
+                });
+                player.captureCount = newCaptureCount;
+
+
                 this.currentState = this.GAME;
                 gamePaused = false;
                 fadeOverlayAlpha = 0;
@@ -567,22 +617,27 @@
                     case this.MENU: this.startScreen.handleInput(key); break;
                     case this.INSTRUCTIONS: this.instructionsScreen.handleInput(key); break;
                     case this.PAUSED: this.pauseMenu.handleInput(key); break;
-                    case this.GAME_OVER: this.gameOverScreen.handleInput(key); break; // Or VICTORY
                     case this.VICTORY: this.victoryScreen.handleInput(key); break;
                 }
             },
-            update: function() { // Main game state update logic
+            update: function() { 
                 if (this.currentState === this.GAME && !gamePaused) {
-                    if (students.length > 0 && player.captureCount >= students.length ) { 
-                        this.currentState = this.VICTORY; // All students ever are caught
+                    const allKremerStudentsCaughtAndAtSeat = students.length > 0 && students.every(s => s.isCaught && s.isAtSeat);
+                    if (allKremerStudentsCaughtAndAtSeat) {
+                        this.currentState = this.VICTORY; 
+                        player.dx = 0; player.dy = 0; 
+                        keys.up = keys.down = keys.left = keys.right = keys.shift = false;
+                        if (isTouchDevice && joystick.active) {
+                            joystick.active = false; joystick.touchId = null;
+                            joystick.stickX = joystick.x; joystick.stickY = joystick.y;
+                        }
                     }
-                    // Day transition is handled by environment.updateEnvironment triggering startDayTransition
                 } else if (this.currentState === this.DAY_TRANSITION_OUT) {
                     fadeOverlayAlpha += FADE_SPEED;
                     if (fadeOverlayAlpha >= 1) {
                         fadeOverlayAlpha = 1;
                         currentDay++; 
-                        this.resetDay(); // Reset positions, time for the new day
+                        this.resetDay(); 
                         showGameMessage(`Day ${currentDay}`, 3000);
                         this.currentState = this.DAY_TRANSITION_IN;
                     }
@@ -591,7 +646,7 @@
                     if (fadeOverlayAlpha <= 0) {
                         fadeOverlayAlpha = 0;
                         this.currentState = this.GAME;
-                        gamePaused = false; // Resume game logic
+                        gamePaused = false; 
                     }
                 }
             },
@@ -599,10 +654,8 @@
                  switch(this.currentState) {
                     case this.MENU: this.startScreen.draw(); break;
                     case this.INSTRUCTIONS: this.instructionsScreen.draw(); break;
-                    case this.PAUSED: this.pauseMenu.draw(); break;
-                    case this.GAME_OVER: this.gameOverScreen.draw(); break;
+                    case this.PAUSED: this.pauseMenu.draw(); break; 
                     case this.VICTORY: this.victoryScreen.draw(); break;
-                    // Day transition fade is drawn in the main draw() function
                 }
             }
         };
@@ -611,7 +664,7 @@
             gameUIMessage.textContent = message;
             gameUIMessage.classList.remove('hidden');
             setTimeout(() => {
-                if (gameUIMessage.textContent === message) { // Only hide if it's still the same message
+                if (gameUIMessage.textContent === message) { 
                     gameUIMessage.classList.add('hidden');
                 }
             }, duration);
@@ -624,19 +677,34 @@
             return Math.sqrt(Math.pow(centerX1 - centerX2, 2) + Math.pow(centerY1 - centerY2, 2));
         }
 
-        function generateSeatPositions() {
-            const table = tables[KREMER_TABLE_INDEX]; const seats = [];
-            const spacing = TILE_SIZE * 1.5; const numSeatsAround = 15;
-            for (let i = 0; i < Math.floor(table.width / spacing) && seats.length < numSeatsAround; i++) seats.push({ x: table.x + i * spacing + TILE_SIZE * 0.25, y: table.y - TILE_SIZE * 1.5 });
-            for (let i = 0; i < Math.floor(table.height / spacing) && seats.length < numSeatsAround; i++) seats.push({ x: table.x + table.width + TILE_SIZE, y: table.y + i * spacing + TILE_SIZE * 0.25 });
-            for (let i = 0; i < Math.floor(table.width / spacing) && seats.length < numSeatsAround; i++) seats.push({ x: table.x + i * spacing + TILE_SIZE * 0.25, y: table.y + table.height + TILE_SIZE * 0.5 });
-            for (let i = 0; i < Math.floor(table.height / spacing) && seats.length < numSeatsAround; i++) seats.push({ x: table.x - TILE_SIZE * 1.5, y: table.y + i * spacing + TILE_SIZE * 0.25 });
-            while (seats.length < numSeatsAround && seats.length < studentNames.length) seats.push({ x: table.x + getRandomInt(-5, 5) * TILE_SIZE, y: table.y + getRandomInt(-5, 5) * TILE_SIZE });
-            return seats.slice(0, Math.min(numSeatsAround, studentNames.length));
+        function generateSeatPositions(tableIndex, numSeats) {
+            const table = tables[tableIndex]; 
+            const seats = [];
+            const spacing = TILE_SIZE * 1.5;
+        
+            for (let i = 0; i < Math.floor(table.width / spacing) && seats.length < numSeats; i++) {
+                seats.push({ x: table.x + i * spacing + TILE_SIZE * 0.25, y: table.y - TILE_SIZE * 1.5 });
+            }
+            for (let i = 0; i < Math.floor(table.height / spacing) && seats.length < numSeats; i++) {
+                seats.push({ x: table.x + table.width + TILE_SIZE, y: table.y + i * spacing + TILE_SIZE * 0.25 });
+            }
+            for (let i = 0; i < Math.floor(table.width / spacing) && seats.length < numSeats; i++) {
+                seats.push({ x: table.x + i * spacing + TILE_SIZE * 0.25, y: table.y + table.height + TILE_SIZE * 0.5 });
+            }
+            for (let i = 0; i < Math.floor(table.height / spacing) && seats.length < numSeats; i++) {
+                seats.push({ x: table.x - TILE_SIZE * 1.5, y: table.y + i * spacing + TILE_SIZE * 0.25 });
+            }
+            while (seats.length < numSeats) {
+                seats.push({ x: table.x + getRandomInt(-5, 5) * TILE_SIZE, y: table.y + getRandomInt(-5, 5) * TILE_SIZE });
+            }
+            return seats.slice(0, numSeats);
         }
-        const seatPositions = generateSeatPositions();
 
-        function findValidPositions(count) {
+        const kremerSeatPositions = generateSeatPositions(KREMER_TABLE_INDEX, 15); 
+        const zivSeatPositions = generateSeatPositions(ZIV_TABLE_INDEX, 6); 
+
+
+        function findKremerStudentValidPositions(count) {
             const positions = []; const minDistanceBetweenStudents = TILE_SIZE * 3;
             const kremerTable = tables[KREMER_TABLE_INDEX];
             const playerStartX = kremerTable.x + kremerTable.width / 2;
@@ -651,7 +719,7 @@
                     for (const table of tables) if (checkCollision({x: studentX - TILE_SIZE, y: studentY - TILE_SIZE, width: TILE_SIZE * 3, height: TILE_SIZE * 3}, table)) { validPosition = false; break; }
                     if (validPosition) for (const pos of positions) if (Math.sqrt(Math.pow(studentX - pos.x, 2) + Math.pow(studentY - pos.y, 2)) < minDistanceBetweenStudents) { validPosition = false; break; }
                     if (Math.sqrt(Math.pow(studentX - playerStartX, 2) + Math.pow(studentY - playerStartY, 2)) < TILE_SIZE * 15) validPosition = false;
-                    if (tables[1] && checkCollision({x: studentX, y: studentY, width: TILE_SIZE, height: TILE_SIZE}, tables[1])) validPosition = false;
+                    if (tables[ZIV_TABLE_INDEX] && checkCollision({x: studentX, y: studentY, width: TILE_SIZE, height: TILE_SIZE}, tables[ZIV_TABLE_INDEX])) validPosition = false; 
                     if (attempts > 200) { 
                         studentX = getRandomInt(TILE_SIZE, WORLD_WIDTH - TILE_SIZE * 2); 
                         studentY = getRandomInt(TILE_SIZE, WORLD_HEIGHT - TILE_SIZE * 2); 
@@ -663,31 +731,75 @@
             return positions;
         }
         
-        function initializeStudents() {
+        function initializeKremerStudents() {
             students.length = 0; 
-            const numStudentsToSpawn = Math.min(15, studentNames.length, seatPositions.length);
-            const validPositions = findValidPositions(numStudentsToSpawn);
+            const numStudentsToSpawn = 15; 
+            const validPositions = findKremerStudentValidPositions(numStudentsToSpawn);
 
             for (let i = 0; i < numStudentsToSpawn; i++) {
                 students.push({
-                    id: i, name: studentNames[i],
+                    id: `kremer_${i}`, name: kremerStudentNames[i % kremerStudentNames.length], teacher: "Kremer", 
                     x: validPositions[i].x, y: validPositions[i].y,
                     width: TILE_SIZE, height: TILE_SIZE,
-                    color: UNIFORM_STUDENT_COLOR, 
-                    isCaught: false, isWandering: true, isAfraidOfTeacher: false,
+                    color: KREMER_STUDENT_COLOR, 
+                    isCaught: false, isAtSeat: false,
+                    isWandering: true, isAfraidOfTeacher: false,
                     wanderTargetX: validPositions[i].x, wanderTargetY: validPositions[i].y,
-                    seatX: seatPositions[i].x, seatY: seatPositions[i].y,
+                    seatX: kremerSeatPositions[i].x, seatY: kremerSeatPositions[i].y,
                     speed: 1.5 + Math.random() * 0.5, runSpeed: 2.5 + Math.random() * 0.7, returnSpeed: 3,
                     wanderTimer: 0, wanderDelay: getRandomInt(60, 200), 
                     lastDirection: { x: 0, y: 0 },
                     personality: { bravery: Math.random() * 0.6 + 0.2, intelligence: Math.random() * 0.7 + 0.1, stubbornness: Math.random() },
-                    escapeTimer: 0, escapeFailCounter: 0, messageTimer: 0, currentMessage: "", frozenTimer: 0
+                    escapeTimer: 0, escapeFailCounter: 0, messageTimer: 0, currentMessage: "", frozenTimer: 0,
+                    happiness: 50, madness: 0, boredom: 0, timesCaughtThisDay: 0
                 });
             }
         }
 
+        function initializeZivStudents() {
+            zivStudents.length = 0;
+            const zivTable = tables[ZIV_TABLE_INDEX];
+            
+            for (let i = 0; i < zivStudentNames.length; i++) {
+                let studentX, studentY, isWanderingZ; 
+                const studentSpeed = 0.7; 
+
+                if (i < 6) { 
+                    isWanderingZ = false;
+                    studentX = zivSeatPositions[i % zivSeatPositions.length].x; 
+                    studentY = zivSeatPositions[i % zivSeatPositions.length].y;
+                } else { 
+                    isWanderingZ = true;
+                    studentX = zivTable.x + zivTable.width / 2 + getRandomInt(-TILE_SIZE * 3, TILE_SIZE * 3);
+                    studentY = zivTable.y + zivTable.height / 2 + getRandomInt(-TILE_SIZE * 3, TILE_SIZE * 3);
+                }
+                
+                studentX = Math.max(TILE_SIZE, Math.min(studentX, WORLD_WIDTH - TILE_SIZE*2));
+                studentY = Math.max(TILE_SIZE, Math.min(studentY, WORLD_HEIGHT - TILE_SIZE*2));
+
+                zivStudents.push({
+                    id: `ziv_${i}`, name: zivStudentNames[i], teacher: "Ziv",
+                    x: studentX, y: studentY,
+                    width: TILE_SIZE, height: TILE_SIZE,
+                    color: ZIV_STUDENT_COLOR,
+                    isWandering: isWanderingZ,
+                    wanderTargetX: studentX, wanderTargetY: studentY, 
+                    speed: studentSpeed,
+                    wanderTimer: 0, wanderDelay: getRandomInt(120, 300), 
+                    lastDirection: { x: 0, y: 0 },
+                });
+            }
+        }
+        
+        function initializeAllStudents() {
+            initializeKremerStudents();
+            initializeZivStudents();
+        }
+
+
         function checkCollision(rect1, rect2) {
             if (!rect1 || !rect2) return false; 
+            if (rect2.isBench) return false; // Benches are not collidable
             return rect1.x < rect2.x + rect2.width &&
                    rect1.x + rect1.width > rect2.x &&
                    rect1.y < rect2.y + rect2.height &&
@@ -701,7 +813,7 @@
             if (student.personality.intelligence > 0.6) { 
                 let bestHidingSpot = null; let maxScore = -Infinity;
                 tables.forEach(table => {
-                    if (table === tables[KREMER_TABLE_INDEX]) return; 
+                    if (table.id === "kremer_table" || table.isBench) return; 
                     const tableCenterX = table.x + table.width / 2; const tableCenterY = table.y + table.height / 2;
                     const teacherToTableX = tableCenterX - teacher.x; const teacherToTableY = tableCenterY - teacher.y;
                     const distTeacherToTable = Math.sqrt(teacherToTableX*teacherToTableX + teacherToTableY*teacherToTableY) || 1;
@@ -734,7 +846,10 @@
             for (let i = 0; i <= steps; i++) {
                 const t = i / steps;
                 const checkX = startX + (endX - startX) * t; const checkY = startY + (endY - startY) * t;
-                for (const table of tables) if (checkX >= table.x && checkX <= table.x + table.width && checkY >= table.y && checkY <= table.y + table.height) return true;
+                for (const table of tables) { 
+                    if (table.isBench) continue; // Benches don't block paths
+                    if (checkX >= table.x && checkX <= table.x + table.width && checkY >= table.y && checkY <= table.y + table.height) return true;
+                }
             }
             return false;
         }
@@ -774,7 +889,12 @@
                     validPosition = true; attempts++;
                     x = getRandomInt(TILE_SIZE * 2, WORLD_WIDTH - TILE_SIZE * 3); y = getRandomInt(TILE_SIZE * 2, WORLD_HEIGHT - TILE_SIZE * 3);
                     const tempPowerUp = {x, y, width: TILE_SIZE, height: TILE_SIZE};
-                    for (const table of tables) if (checkCollision(tempPowerUp, {x: table.x - TILE_SIZE, y: table.y - TILE_SIZE, width: table.width + TILE_SIZE*2, height: table.height + TILE_SIZE*2})) { validPosition = false; break; }
+                    for (const table of tables) {
+                        if (table.isBench) continue; // Power-ups should not collide with non-collidable benches for spawning
+                        if (checkCollision(tempPowerUp, {x: table.x - TILE_SIZE, y: table.y - TILE_SIZE, width: table.width + TILE_SIZE*2, height: table.height + TILE_SIZE*2})) { 
+                            validPosition = false; break; 
+                        }
+                    }
                     if (validPosition) for (const pUp of powerUps) if (distance(tempPowerUp, pUp) < TILE_SIZE * 8) { validPosition = false; break; } 
                     
                     const kremerTable = tables[KREMER_TABLE_INDEX];
@@ -795,7 +915,7 @@
             if (gamePaused || gameStates.isTransitioningDay()) return;
             for (let i = powerUps.length - 1; i >= 0; i--) {
                 const powerUp = powerUps[i]; powerUp.pulseTimer += 0.05; 
-                if (checkCollision(player, powerUp)) {
+                if (checkCollision(player, powerUp)) { // Player collision with power-up (benches won't block this)
                     powerUp.type.effect();
                     powerUps.splice(i, 1); 
                 }
@@ -815,12 +935,12 @@
         function updatePlayer() {
             if (gamePaused || gameStates.isTransitioningDay()) return;
 
-            if (player.isSprinting && keys.shift && player.stamina > 0) { // keys.shift is for keyboard AND mobile sprint button
+            if (player.isSprinting && keys.shift && player.stamina > 0) { 
                 player.currentSpeed = player.baseSpeed * player.sprintMultiplier;
                 player.stamina = Math.max(0, player.stamina - player.staminaDepletionRate);
                 if (player.stamina <= 0) {
                     player.isSprinting = false; 
-                    keys.shift = false; // Also release the "key" state for mobile button
+                    keys.shift = false; 
                     if (mobileButtons.sprint.pressed) mobileButtons.sprint.pressed = false;
                 }
             } else {
@@ -850,7 +970,8 @@
             player.x = Math.max(0, Math.min(player.x, WORLD_WIDTH - player.width));
             player.y = Math.max(0, Math.min(player.y, WORLD_HEIGHT - player.height));
 
-            for (const table of tables) {
+            for (const table of tables) { 
+                if (table.isBench) continue; // Skip collision with benches for player
                 if (checkCollision(player, table)) {
                     const overlapLeft = (player.x + player.width) - table.x;
                     const overlapRight = (table.x + table.width) - player.x;
@@ -868,24 +989,55 @@
                 }
             }
         }
+        
+        function getMoodEmoji(student) {
+            if (student.madness > 70) return "😠"; 
+            if (student.madness > 40) return "😒"; 
+            if (student.happiness <= 20 && student.boredom > 50) return "😑"; 
+            if (student.happiness <= 40) return "😐"; 
+            if (student.happiness > 70) return "😄"; 
+            if (student.happiness > 40) return "🙂"; 
+            return "😐"; 
+        }
 
-        function updateStudents() {
+
+        function updateKremerStudents() {
             if (gamePaused || gameStates.isTransitioningDay()) return;
-            students.forEach(student => {
+            students.forEach(student => { 
                 if (student.frozenTimer && student.frozenTimer > 0) { student.frozenTimer--; return; } 
 
-                if (student.isCaught) {
+                if (student.isCaught && student.isAtSeat) {
+                    student.boredom = Math.min(100, student.boredom + 0.1); 
+                    student.happiness = Math.max(0, student.happiness - 0.02);
+                    if (student.boredom >= 100) {
+                        student.isCaught = false;
+                        student.isAtSeat = false;
+                        student.isWandering = true;
+                        player.captureCount = Math.max(0, player.captureCount -1); // Decrement if they leave
+                        student.boredom = 0;
+                        student.happiness = Math.max(0, student.happiness - 30);
+                        student.madness = Math.min(100, student.madness + 15);
+                        const angle = Math.random() * Math.PI * 2;
+                        student.wanderTargetX = student.seatX + Math.cos(angle) * TILE_SIZE * 10;
+                        student.wanderTargetY = student.seatY + Math.sin(angle) * TILE_SIZE * 10;
+                        showGameMessage(`${student.name} got bored and left!`);
+                    }
+                } else if (student.isCaught && !student.isAtSeat) { 
                     const targetX = student.seatX; const targetY = student.seatY;
                     const diffX = targetX - student.x; const diffY = targetY - student.y;
                     const distToSeat = Math.sqrt(diffX * diffX + diffY * diffY);
 
-                    if (distToSeat < student.returnSpeed) { student.x = targetX; student.y = targetY; } 
-                    else {
+                    if (distToSeat < student.returnSpeed) { 
+                        student.x = targetX; student.y = targetY; 
+                        student.isAtSeat = true; 
+                        student.boredom = 0; 
+                    } else {
                         let moveX = (diffX / distToSeat) * student.returnSpeed; 
                         let moveY = (diffY / distToSeat) * student.returnSpeed;
                         let nextX = student.x + moveX; let nextY = student.y + moveY;
                         
-                        for (const table of tables) {
+                        for (const table of tables) { 
+                            if (table.isBench) continue;
                             if (checkCollision({ ...student, x: nextX, y: nextY }, table)) {
                                 if (Math.abs(diffX) > Math.abs(diffY)) { 
                                      if (!isPathBlocked(student.x, student.y, student.x, student.y + Math.sign(diffY) * student.returnSpeed)) { moveX = 0; moveY = Math.sign(diffY) * student.returnSpeed * 0.8; }
@@ -898,6 +1050,12 @@
                         student.x += moveX; student.y += moveY;
                     }
                 } else { 
+                    student.isAtSeat = false; 
+                    if (student.isWandering && !student.isAfraidOfTeacher) {
+                        student.happiness = Math.min(100, student.happiness + 0.05);
+                        student.madness = Math.max(0, student.madness - 0.03);
+                    }
+
                     if (player.attractionField) {
                         const distToPlayer = distance(student, player);
                         if (distToPlayer < player.attractionRadius) {
@@ -937,15 +1095,18 @@
                             student.lastDirection = { x: moveX, y: moveY };
 
                             let nextX = student.x + moveX; let nextY = student.y + moveY; let collided = false;
-                            for (const table of tables) if (checkCollision({ ...student, x: nextX, y: nextY }, table)) { 
-                                collided = true; 
-                                student.x -= moveX * 0.5; student.y -= moveY * 0.5; 
-                                student.lastDirection = {x: -student.lastDirection.x *0.5 , y: -student.lastDirection.y*0.5}; 
-                                student.escapeFailCounter++; 
-                                if(student.escapeFailCounter > 5) { 
-                                    student.isAfraidOfTeacher = false; student.isWandering = true; student.wanderTimer = 0; student.escapeFailCounter = 0; 
+                            for (const table of tables) {
+                                if (table.isBench) continue;
+                                if (checkCollision({ ...student, x: nextX, y: nextY }, table)) { 
+                                    collided = true; 
+                                    student.x -= moveX * 0.5; student.y -= moveY * 0.5; 
+                                    student.lastDirection = {x: -student.lastDirection.x *0.5 , y: -student.lastDirection.y*0.5}; 
+                                    student.escapeFailCounter++; 
+                                    if(student.escapeFailCounter > 5) { 
+                                        student.isAfraidOfTeacher = false; student.isWandering = true; student.wanderTimer = 0; student.escapeFailCounter = 0; 
+                                    }
+                                    break; 
                                 }
-                                break; 
                             }
                             if (!collided) { student.x = nextX; student.y = nextY; student.escapeFailCounter = 0; }
                         } else { 
@@ -978,7 +1139,10 @@
 
                             let nextX = student.x + moveX; let nextY = student.y + moveY; let collision = false;
                             const futureStudent = { ...student, x: nextX, y: nextY };
-                            for (const table of tables) if (checkCollision(futureStudent, table)) { collision = true; break; }
+                            for (const table of tables) {
+                                if (table.isBench) continue;
+                                if (checkCollision(futureStudent, table)) { collision = true; break; }
+                            }
                             for (const otherStudent of students) if (student.id !== otherStudent.id && !otherStudent.isCaught && distance(futureStudent, otherStudent) < TILE_SIZE * 1.5) { collision = true; break; }
                             
                             if (!collision) { student.x = nextX; student.y = nextY; } 
@@ -990,24 +1154,95 @@
                     }
 
                     if (distance(player, student) < CAPTURE_RADIUS && !student.isCaught) {
-                        student.isCaught = true; student.isWandering = false; student.isAfraidOfTeacher = false;
-                        player.captureCount++;
+                        student.isCaught = true; 
+                        student.isAtSeat = false; 
+                        student.isWandering = false; 
+                        student.isAfraidOfTeacher = false; 
+                        student.currentMessage = "";      
+                        student.messageTimer = 0;
+                        player.captureCount++; 
+                        
+                        student.timesCaughtThisDay++;
+                        student.madness = Math.min(100, student.madness + 15 * student.timesCaughtThisDay);
+                        student.happiness = Math.max(0, student.happiness - 20);
+
                         showGameMessage(`${student.name} caught! (${player.captureCount}/${students.length})`);
                     }
                 }
             });
         }
 
+        function updateZivStudents() {
+            if (gamePaused || gameStates.isTransitioningDay()) return;
+            const zivTable = tables[ZIV_TABLE_INDEX];
+            const wanderBounds = {
+                minX: zivTable.x - TILE_SIZE * 5,
+                maxX: zivTable.x + zivTable.width + TILE_SIZE * 5,
+                minY: zivTable.y - TILE_SIZE * 5,
+                maxY: zivTable.y + zivTable.height + TILE_SIZE * 5,
+            };
 
-        function update() { // Main update loop
-            environment.updateEnvironment(); // Handles gameTime increment and day transition check
-            if (!gamePaused && !gameStates.isTransitioningDay()) { // Only run these if game is active
+            zivStudents.forEach(student => {
+                if (student.isWandering) {
+                    student.wanderTimer++;
+                    if (student.wanderTimer >= student.wanderDelay || distance(student, {x: student.wanderTargetX, y: student.wanderTargetY, width:1, height:1}) < student.speed * 2) {
+                        student.wanderTimer = 0; student.wanderDelay = getRandomInt(150, 400); 
+                        const angle = Math.random() * Math.PI * 2;
+                        const wanderDist = TILE_SIZE * getRandomInt(3, 8); 
+                        student.wanderTargetX = student.x + Math.cos(angle) * wanderDist;
+                        student.wanderTargetY = student.y + Math.sin(angle) * wanderDist;
+
+                        student.wanderTargetX = Math.max(wanderBounds.minX, Math.min(student.wanderTargetX, wanderBounds.maxX));
+                        student.wanderTargetY = Math.max(wanderBounds.minY, Math.min(student.wanderTargetY, wanderBounds.maxY));
+                        student.wanderTargetX = Math.max(TILE_SIZE, Math.min(student.wanderTargetX, WORLD_WIDTH - TILE_SIZE*2));
+                        student.wanderTargetY = Math.max(TILE_SIZE, Math.min(student.wanderTargetY, WORLD_HEIGHT - TILE_SIZE*2));
+                    }
+
+                    const diffX = student.wanderTargetX - student.x;
+                    const diffY = student.wanderTargetY - student.y;
+                    const distToTarget = Math.sqrt(diffX * diffX + diffY * diffY);
+
+                    if (distToTarget > student.speed) {
+                        let moveX = (diffX / distToTarget) * student.speed;
+                        let moveY = (diffY / distToTarget) * student.speed;
+                        moveX = moveX * 0.7 + student.lastDirection.x * 0.3;
+                        moveY = moveY * 0.7 + student.lastDirection.y * 0.3;
+                        const moveLen = Math.sqrt(moveX*moveX + moveY*moveY) || 1;
+                        if (moveLen > student.speed) { moveX = (moveX/moveLen) * student.speed; moveY = (moveY/moveLen) * student.speed; }
+                        student.lastDirection = { x: moveX, y: moveY };
+
+                        let nextX = student.x + moveX; let nextY = student.y + moveY; let collision = false;
+                        const futureStudent = { ...student, x: nextX, y: nextY };
+                        for (const table of tables) {
+                            if (table.isBench) continue; // Ziv students ignore benches for collision
+                            if (table.id !== "ziv_table" && checkCollision(futureStudent, table)) { 
+                                collision = true; break; 
+                            }
+                        }
+                        for (const otherZivStudent of zivStudents) if (student.id !== otherZivStudent.id && distance(futureStudent, otherZivStudent) < TILE_SIZE * 1.5) { collision = true; break; }
+                        
+                        if (!collision) { student.x = nextX; student.y = nextY; } 
+                        else { student.wanderTimer = student.wanderDelay; student.lastDirection = {x:0, y:0}; }
+                    } else {
+                        student.wanderTimer = student.wanderDelay; 
+                    }
+                    student.x = Math.max(0, Math.min(student.x, WORLD_WIDTH - student.width));
+                    student.y = Math.max(0, Math.min(student.y, WORLD_HEIGHT - student.height));
+                }
+            });
+        }
+
+
+        function update() { 
+            environment.updateEnvironment(); 
+            if (!gamePaused && !gameStates.isTransitioningDay()) { 
                 specialAbilities.update();
                 updatePlayer(); 
-                updateStudents(); 
+                updateKremerStudents(); 
+                updateZivStudents();
                 updatePowerUps();
             }
-            updateCamera(); // Camera might still move slightly during fade if player was moving
+            updateCamera(); 
             gameStates.update(); 
         }
         
@@ -1056,36 +1291,44 @@
             drawGrid(); 
 
             tables.forEach(table => {
+                // Draw all table objects, including those marked as benches
                 drawRect(table.x, table.y, table.width, table.height, table.color, lightLevel);
-                if (table.name === "Dining Table") {
+                
+                if (table.name === "Dining Table" && !table.isBench) { 
                     const tabletopPadding = TILE_SIZE * 0.2;
                     drawRect(table.x + tabletopPadding, table.y + tabletopPadding, 
                                  table.width - 2 * tabletopPadding, table.height - 2 * tabletopPadding, 'rgba(0,0,0,0.15)', lightLevel);
-                    const benchColor = '#A0522D'; 
-                    const benchThickness = TILE_SIZE * 0.75;
-                    const benchOffset = TILE_SIZE * 0.2;
-                    if (table.width > table.height) { 
-                        drawRect(table.x, table.y - benchThickness - benchOffset, table.width, benchThickness, benchColor, lightLevel);
-                        drawRect(table.x, table.y + table.height + benchOffset, table.width, benchThickness, benchColor, lightLevel);
-                    } else { 
-                        drawRect(table.x - benchThickness - benchOffset, table.y, benchThickness, table.height, benchColor, lightLevel);
-                        drawRect(table.x + table.width + benchOffset, table.y, benchThickness, table.height, benchColor, lightLevel);
-                    }
-                } else if (table.name !== "Obstacle") {
-                    drawText(table.name, table.x + table.width / 2, table.y + table.height / 2 - 5, '#eee', 8, 'center', lightLevel);
+                } else if (table.id === "kremer_table" || table.id === "ziv_table") { // Only draw names for main class tables
+                     drawText(table.name, table.x + table.width / 2, table.y + table.height / 2 - 5, '#eee', 8, 'center', lightLevel);
                 }
             });
+
 
             drawRect(ziv.x, ziv.y, ziv.width, ziv.height, ziv.color, lightLevel);
             drawText(ziv.name, ziv.x + ziv.width / 2, ziv.y - 6, '#fff', 8, 'center', lightLevel);
 
-            seatPositions.forEach((seat) => {
-                const studentAtSeat = students.find(s => s.isCaught && Math.abs(s.x - seat.x) < TILE_SIZE/2 && Math.abs(s.y - seat.y) < TILE_SIZE/2);
+            kremerSeatPositions.forEach((seat) => {
+                const studentAtSeat = students.find(s => s.isCaught && s.isAtSeat && Math.abs(s.x - seat.x) < TILE_SIZE/2 && Math.abs(s.y - seat.y) < TILE_SIZE/2);
                 if (studentAtSeat) {
                     drawRect(seat.x, seat.y, TILE_SIZE, TILE_SIZE, studentAtSeat.color, lightLevel);
-                    drawText(studentAtSeat.name.substring(0,3), seat.x + TILE_SIZE / 2, seat.y - 6, '#fff', 7, 'center', lightLevel);
+                    const moodEmoji = getMoodEmoji(studentAtSeat);
+                    drawText(`${moodEmoji} ${studentAtSeat.name.substring(0,3)}(K)`, seat.x + TILE_SIZE / 2, seat.y - 8, '#fff', 9, 'center', lightLevel);
                 } else drawRect(seat.x, seat.y, TILE_SIZE, TILE_SIZE, '#555', lightLevel); 
             });
+            
+            // Draw Ziv's seats (visual only, no interaction logic needed for them beyond student placement)
+            zivSeatPositions.forEach(seat => {
+                 const studentAtSeat = zivStudents.find(s => !s.isWandering && Math.abs(s.x - seat.x) < TILE_SIZE/2 && Math.abs(s.y - seat.y) < TILE_SIZE/2);
+                 if(studentAtSeat){
+                    // Student is already drawn, so just draw the seat if it's "occupied" by a non-wandering Ziv student
+                    // Or, if you want to draw Ziv students explicitly on seats:
+                    // drawRect(seat.x, seat.y, TILE_SIZE, TILE_SIZE, ZIV_STUDENT_COLOR, lightLevel); // Example if student is drawn here
+                    // drawText(`${studentAtSeat.name.substring(0,3)}(Z)`, seat.x + TILE_SIZE / 2, seat.y - 8, '#fff', 9, 'center', lightLevel);
+                 } else {
+                    drawRect(seat.x, seat.y, TILE_SIZE, TILE_SIZE, '#4a4a4a', lightLevel); // Darker empty seat for Ziv
+                 }
+            });
+
 
             powerUps.forEach(powerUp => {
                 const pulseScale = 0.8 + Math.sin(powerUp.pulseTimer) * 0.2; const size = TILE_SIZE * pulseScale;
@@ -1096,17 +1339,18 @@
             });
 
             students.forEach(s => {
-                if (!s.isCaught || (s.isCaught && (Math.abs(s.x - s.seatX) > 1 || Math.abs(s.y - s.seatY) > 1))) {
+                if (!s.isAtSeat) { 
                     drawRect(s.x, s.y, s.width, s.height, s.color, lightLevel);
-                    drawText(s.name.substring(0,3), s.x + s.width / 2, s.y - 6, '#fff', 7, 'center', lightLevel); 
-                    if (s.currentMessage && s.messageTimer > 0) drawText(s.currentMessage, s.x + s.width / 2, s.y - 15, '#ffcc00', 12, 'center', lightLevel);
-                    else if (s.isAfraidOfTeacher) drawText("!", s.x + s.width / 2, s.y - 15, '#ff3333', 12, 'center', lightLevel); 
+                    const moodEmoji = getMoodEmoji(s);
+                    drawText(`${moodEmoji} ${s.name.substring(0,3)}(K)`, s.x + s.width / 2, s.y - 8, '#fff', 9, 'center', lightLevel); 
+                    if (s.currentMessage && s.messageTimer > 0) drawText(s.currentMessage, s.x + s.width / 2, s.y - 20, '#ffcc00', 12, 'center', lightLevel); 
+                    else if (s.isAfraidOfTeacher) drawText("!", s.x + s.width / 2, s.y - 20, '#ff3333', 12, 'center', lightLevel); 
 
                     if (player.radarActive && !s.isCaught) {
                         const dist = distance(player, s); const maxRadarDist = TILE_SIZE * 40;
                         if (dist < maxRadarDist) {
                             const radarIntensity = Math.max(0.2, 1 - dist / maxRadarDist);
-                            const pulseSize = (4 + Math.sin(gameTime * 8 + s.id) * 2) * radarIntensity; // gameTime here is fine for visual pulse
+                            const pulseSize = (4 + Math.sin(Date.now() * 0.008 + s.id.hashCode()) * 2) * radarIntensity; 
                             drawCircle(s.x + s.width / 2, s.y + s.height / 2, pulseSize, `rgba(255, 100, 100, ${radarIntensity * 0.7})`, lightLevel);
                         }
                     }
@@ -1117,12 +1361,18 @@
                 }
             });
 
+            zivStudents.forEach(s => {
+                drawRect(s.x, s.y, s.width, s.height, s.color, lightLevel);
+                drawText(`${s.name.substring(0,3)}(Z)`, s.x + s.width / 2, s.y - 8, '#fff', 9, 'center', lightLevel);
+            });
+
+
             drawRect(player.x, player.y, player.width, player.height, player.color, lightLevel);
             drawText(player.name, player.x + player.width / 2, player.y - 6, '#fff', 8, 'center', lightLevel);
             if (player.attractionField) {
                 const oldGlobalAlpha = ctx.globalAlpha; 
-                ctx.globalAlpha = lightLevel * oldGlobalAlpha; // Modulate with existing light level
-                const pulse = Math.sin(Date.now() * 0.006) * 0.1; // Use Date.now() for continuous pulse
+                ctx.globalAlpha = lightLevel * oldGlobalAlpha; 
+                const pulse = Math.sin(Date.now() * 0.006) * 0.1; 
                 ctx.strokeStyle = `rgba(255, 0, 204, ${0.3 + pulse * 0.2})`; ctx.lineWidth = 2 + pulse;
                 ctx.beginPath(); ctx.arc(player.x + player.width/2, player.y + player.height/2, player.attractionRadius * (0.9 + pulse * 0.05) , 0, Math.PI * 2); ctx.stroke();
                 ctx.globalAlpha = oldGlobalAlpha;
@@ -1154,19 +1404,17 @@
             drawText(specialAbilities.available[specialAbilities.selectedAbility].name, padding + barWidth + padding, abilityBarY + barHeight/2 + fontSizeSmall/2.5, '#fff', fontSizeSmall, 'left');
 
             const studentsTextY = abilityBarY + barHeight + padding;
-            drawText(`Students: ${player.captureCount}/${students.length}`, padding, studentsTextY, '#fff', fontSizeMedium, 'left');
+            drawText(`Students: ${player.captureCount}/${students.length}`, padding, studentsTextY, '#fff', fontSizeMedium, 'left'); 
 
-            // Game Time Display (06:30 to 13:00)
             const currentTotalGameHours = GAME_DAY_START_HOUR + (environment.timeOfDay * GAME_DAY_DURATION_HOURS);
             const displayHour = Math.floor(currentTotalGameHours);
             const displayMinute = Math.floor((currentTotalGameHours % 1) * 60);
             const gameTimeDisplayY = studentsTextY + fontSizeMedium + padding / 2;
             drawText(`Time: ${displayHour < 10 ? '0' : ''}${displayHour}:${displayMinute < 10 ? '0' : ''}${displayMinute}`, padding, gameTimeDisplayY, '#fff', fontSizeMedium, 'left');
 
-            // Current Day Display
             drawText(`Day: ${currentDay}`, canvas.width - padding, padding + fontSizeSmall, '#fff', fontSizeSmall, 'right');
             
-            if (Date.now() % 2000 < 1000 && gameTime < 10 && gameStates.currentState === gameStates.GAME && !gameStates.isTransitioningDay()) { // Blinking hint
+            if (Date.now() % 2000 < 1000 && gameTime < 10 && gameStates.currentState === gameStates.GAME && !gameStates.isTransitioningDay()) { 
                 const hintText = isTouchDevice ? 'Joystick:Move, Buttons:Actions' : 'WASD/Arrows:Move, SHIFT:Sprint, SPACE:Ability, Q:Cycle, P:Pause';
                 drawText(hintText, canvas.width / 2, canvas.height - padding - 5, '#ccc', fontSizeSmall);
             }
@@ -1176,13 +1424,16 @@
             }
         }
 
-        function draw() { // Main draw function
-            if (gameStates.currentState === gameStates.GAME || gameStates.currentState === gameStates.PAUSED || gameStates.isTransitioningDay()) {
+        function draw() { 
+            if (gameStates.currentState === gameStates.GAME || gameStates.isTransitioningDay()) {
                  drawGame();
-            } else {
+            } else if (gameStates.currentState === gameStates.PAUSED) {
+                 drawGame(); 
                  gameStates.draw(); 
             }
-            // Draw fade overlay on top of everything if active
+             else { 
+                 gameStates.draw(); 
+            }
             if (fadeOverlayAlpha > 0) {
                 ctx.fillStyle = `rgba(0, 0, 0, ${fadeOverlayAlpha})`;
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1201,7 +1452,7 @@
 
         function handleKeyDown(e) {
             const key = e.key.toLowerCase();
-            if (gameStates.isTransitioningDay()) return; // No input during day transition
+            if (gameStates.isTransitioningDay()) return; 
 
             if (gameStates.currentState !== gameStates.GAME) { 
                 gameStates.handleKeyPress(e.key); 
@@ -1218,16 +1469,19 @@
                 case ' ': keys.space = true; specialAbilities.activateAbility(); break; 
                 case 'q': keys.q = true; specialAbilities.cycleAbility(); break;
                 case 'p': 
-                    if (gameStates.currentState === gameStates.GAME) { 
-                        gamePaused = !gamePaused; 
-                        if (gamePaused) gameStates.currentState = gameStates.PAUSED;
-                        // else gameStates.currentState = gameStates.GAME; // Resuming is handled by pause menu
-                    } 
+                    if (gameStates.currentState === gameStates.GAME && !gamePaused) { 
+                        gamePaused = true; 
+                        gameStates.currentState = gameStates.PAUSED;
+                    } else if (gameStates.currentState === gameStates.PAUSED && gamePaused) { 
+                        gameStates.pauseMenu.options[0].action(); 
+                    }
                     break;
                 case 'escape': 
-                    if (gameStates.currentState === gameStates.GAME) { 
+                    if (gameStates.currentState === gameStates.GAME && !gamePaused) { 
                         gamePaused = true; gameStates.currentState = gameStates.PAUSED; 
-                    } 
+                    } else if (gameStates.currentState === gameStates.PAUSED) { 
+                         gameStates.pauseMenu.options[0].action(); 
+                    }
                     break;
             }
             if (gameStates.currentState === gameStates.GAME && !isTouchDevice) updatePlayerVelocity(); 
@@ -1279,11 +1533,9 @@
             mobileButtons.activate.visible = true;
             mobileButtons.cycle.visible = true;
 
-            const basePadding = isFullscreenActive ? 0 : 20; // Padding from screen edge if not fullscreen
-
             joystick.radius = Math.min(canvas.width, canvas.height) * 0.11; 
-            joystick.x = joystick.radius * 1.3 + basePadding;
-            joystick.y = canvas.height - joystick.radius * 1.3 - basePadding;
+            joystick.x = joystick.radius * 1.3 + screenEdgePadding;
+            joystick.y = canvas.height - joystick.radius * 1.3 - screenEdgePadding;
             joystick.stickRadius = joystick.radius * 0.45;
             joystick.stickX = joystick.x;
             joystick.stickY = joystick.y;
@@ -1295,17 +1547,17 @@
 
             mobileButtons.sprint.width = buttonWidth;
             mobileButtons.sprint.height = buttonHeight;
-            mobileButtons.sprint.x = canvas.width - buttonWidth - buttonMargin - basePadding;
-            mobileButtons.sprint.y = canvas.height - buttonHeight - buttonMargin - basePadding;
+            mobileButtons.sprint.x = canvas.width - buttonWidth - buttonMargin - screenEdgePadding;
+            mobileButtons.sprint.y = canvas.height - buttonHeight - buttonMargin - screenEdgePadding;
             
             mobileButtons.activate.width = buttonWidth;
             mobileButtons.activate.height = buttonHeight;
-            mobileButtons.activate.x = canvas.width - buttonWidth - buttonMargin - basePadding;
+            mobileButtons.activate.x = canvas.width - buttonWidth - buttonMargin - screenEdgePadding;
             mobileButtons.activate.y = mobileButtons.sprint.y - buttonHeight - buttonMargin;
 
             mobileButtons.cycle.width = buttonWidth;
             mobileButtons.cycle.height = buttonHeight;
-            mobileButtons.cycle.x = canvas.width - buttonWidth - buttonMargin - basePadding;
+            mobileButtons.cycle.x = canvas.width - buttonWidth - buttonMargin - screenEdgePadding;
             mobileButtons.cycle.y = mobileButtons.activate.y - buttonHeight - buttonMargin;
         }
 
@@ -1337,9 +1589,9 @@
         function requestNativeFullScreen() {
             if (canvas.requestFullscreen) {
                 canvas.requestFullscreen();
-            } else if (canvas.webkitRequestFullscreen) { /* Safari */
+            } else if (canvas.webkitRequestFullscreen) { 
                 canvas.webkitRequestFullscreen();
-            } else if (canvas.msRequestFullscreen) { /* IE11 */
+            } else if (canvas.msRequestFullscreen) { 
                 canvas.msRequestFullscreen();
             }
         }
@@ -1347,9 +1599,9 @@
         function exitNativeFullScreen() {
             if (document.exitFullscreen) {
                 document.exitFullscreen();
-            } else if (document.webkitExitFullscreen) { /* Safari */
+            } else if (document.webkitExitFullscreen) { 
                 document.webkitExitFullscreen();
-            } else if (document.msExitFullscreen) { /* IE11 */
+            } else if (document.msExitFullscreen) { 
                 document.msExitFullscreen();
             }
         }
@@ -1364,13 +1616,13 @@
 
         function onFullScreenChange() {
             isFullscreenActive = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
-            screenEdgePadding = (isTouchDevice && !isFullscreenActive) ? 20 : 0;
-            resizeCanvas(); // This will call setupMobileControls
+            screenEdgePadding = (isTouchDevice && !isFullscreenActive) ? Math.min(20, Math.min(window.innerWidth, window.innerHeight) * 0.03) : 0;
+            resizeCanvas(); 
         }
 
         document.addEventListener('fullscreenchange', onFullScreenChange);
-        document.addEventListener('webkitfullscreenchange', onFullScreenChange); // Safari
-        document.addEventListener('msfullscreenchange', onFullScreenChange);     // IE
+        document.addEventListener('webkitfullscreenchange', onFullScreenChange); 
+        document.addEventListener('msfullscreenchange', onFullScreenChange);     
 
         canvas.addEventListener('touchstart', function(e) {
             if (!isTouchDevice) return;
@@ -1409,13 +1661,12 @@
                 }
                 return;
             }
-            // In-game touch controls
             for (let i = 0; i < e.changedTouches.length; i++) {
                 const touch = e.changedTouches[i];
                 const touchX = touch.clientX - rect.left;
                 const touchY = touch.clientY - rect.top;
 
-                if (!joystick.active && joystick.visible && isTouchInCircle(touchX, touchY, joystick.x, joystick.y, joystick.radius * 1.3)) { // Larger activation for joystick
+                if (!joystick.active && joystick.visible && isTouchInCircle(touchX, touchY, joystick.x, joystick.y, joystick.radius * 1.3)) { 
                     joystick.active = true;
                     joystick.touchId = touch.identifier;
                     const dxJoy = touchX - joystick.x;
@@ -1467,7 +1718,7 @@
                     let dyJoy = touchY - joystick.y;
                     const dist = Math.sqrt(dxJoy * dxJoy + dyJoy * dyJoy);
 
-                    if (dist === 0) { // Avoid NaN if touch is exactly on joystick center
+                    if (dist === 0) { 
                         player.dx = 0;
                         player.dy = 0;
                         joystick.stickX = joystick.x;
@@ -1484,7 +1735,7 @@
                     player.dx = dxJoy / joystick.maxDisplacement;
                     player.dy = dyJoy / joystick.maxDisplacement;
                     
-                     if (player.dx !== 0 || player.dy !== 0) { // Normalize if magnitude > 1
+                     if (player.dx !== 0 || player.dy !== 0) { 
                         const length = Math.sqrt(player.dx * player.dx + player.dy * player.dy);
                         if (length > 1) { 
                              player.dx /= length; player.dy /= length;
@@ -1496,7 +1747,6 @@
 
         canvas.addEventListener('touchend', function(e) {
             if (!isTouchDevice || gameStates.currentState !== gameStates.GAME || gameStates.isTransitioningDay()) return;
-            // e.preventDefault(); // Not always needed on touchend, can sometimes interfere
              for (let i = 0; i < e.changedTouches.length; i++) {
                 const touch = e.changedTouches[i];
                 if (joystick.active && touch.identifier === joystick.touchId) {
@@ -1515,6 +1765,17 @@
             }
         });
 
+        String.prototype.hashCode = function() {
+            var hash = 0, i, chr;
+            if (this.length === 0) return hash;
+            for (i = 0; i < this.length; i++) {
+                chr   = this.charCodeAt(i);
+                hash  = ((hash << 5) - hash) + chr;
+                hash |= 0; 
+            }
+            return Math.abs(hash); 
+        };
+
 
         // --- Game Initialization ---
         function initGame() {
@@ -1523,9 +1784,9 @@
                 canvas.height = window.innerHeight;
                 camera.width = canvas.width;
                 camera.height = canvas.height;
-                screenEdgePadding = (isTouchDevice && !isFullscreenActive) ? Math.min(20, canvas.width * 0.03, canvas.height * 0.03) : 0;
+                screenEdgePadding = (isTouchDevice && !isFullscreenActive) ? Math.min(20, Math.min(window.innerWidth, window.innerHeight) * 0.03) : 0;
                 if (isTouchDevice) setupMobileControls(); 
-                if(gameStates.currentState !== gameStates.GAME || gameStates.isTransitioningDay()) gameStates.draw(); // Redraw non-active game states
+                if(gameStates.currentState !== gameStates.GAME || gameStates.isTransitioningDay()) gameStates.draw(); 
             };
             window.addEventListener('resize', resizeCanvas); 
             resizeCanvas(); 
