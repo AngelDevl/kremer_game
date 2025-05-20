@@ -13,7 +13,12 @@ const gameStates = {
         subtitle: "Can you bring them all back to class?",
         options: [
             { text: "Start Game", action: () => gameStates.startGame() },
-            { text: "How to Play", action: () => gameStates.showInstructionsScreen() }
+            { text: "How to Play", action: () => gameStates.showInstructionsScreen() },
+            { text: "About", action: () => window.location.href = "/about" },
+            { text: "Privacy Policy", action: () => window.location.href = "/privacy-policy" },
+            { text: "Terms Of Service", action: () => window.location.href = "/terms-of-service" },
+            { text: "Buy Me A Coffee", action: () => window.location.href = "https://buymeacoffee.com/sweetasmarley" }
+
         ],
         selectedOption: 0,
         fullscreenButtonRect: null,
