@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Catch the Missing Students</title>
+    <title>Catch the Missing Students - Multiplayer</title>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./styles/style.css">
     <link rel="icon" type="image/x-icon" href="/images/kremer-game-logo.png">
@@ -12,6 +12,7 @@
     <canvas id="gameCanvas"></canvas>
     <div id="gameUI" class="hidden">Press WASD or Arrow Keys to move</div>
 
+    <!-- Core game scripts -->
     <script src="js/config.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/camera.js"></script>
@@ -22,6 +23,10 @@
     <script src="js/abilities.js"></script>
     <script src="js/drawing.js"></script>
     <script src="js/ui.js"></script>
+    
+    <!-- Multiplayer script - load before input and gameStates -->
+    <script src="js/multiplayer.js"></script>
+    
     <script src="js/input.js"></script>
     <script src="js/gameStates.js"></script>
     <script src="js/main.js"></script>

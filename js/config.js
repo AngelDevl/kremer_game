@@ -31,7 +31,7 @@ const ZIV_TABLE_INDEX = 1;
 // --- Student Names ---
 const KREMER_STUDENT_NAMES = [
     "Itamar", "Noam", "Moshe", "Yossi", "Shachar", "Oryan", "Naor", "Adiel", "Elisha", "Benjamin",
-    "Avi", "Ron", "Gal", "Liran", "Yaniv" // Total 15 names
+    "Avi", "Yoel", "Gal", "Liran", "Yaniv" // Total 15 names
 ];
 const ZIV_STUDENT_NAMES = [
     "Gershy", "Shua", "Rafi", "Orel", "Yair", "Ehuvia",
